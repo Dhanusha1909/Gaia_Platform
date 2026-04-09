@@ -68,8 +68,22 @@ class DatabaseManager:
             )
         ''')
         
+        # Feedback table - Create it here in init
+        cursor.execute('''
+            CREATE TABLE IF NOT EXISTS feedback (
+                id INTEGER PRIMARY KEY AUTOINCREMENT,
+                tracking_id TEXT NOT NULL,
+                rating TEXT,
+                feedback_text TEXT,
+                is_read BOOLEAN DEFAULT 0,
+                created_at TIMESTAMP,
+                FOREIGN KEY (tracking_id) REFERENCES complaints(tracking_id)
+            )
+        ''')
+        
         # Create index for faster tracking ID lookup
         cursor.execute('CREATE INDEX IF NOT EXISTS idx_tracking_id ON complaints(tracking_id)')
+        cursor.execute('CREATE INDEX IF NOT EXISTS idx_feedback_tracking ON feedback(tracking_id)')
         
         conn.commit()
         conn.close()
@@ -243,8 +257,8 @@ class DatabaseManager:
         except Exception as e:
             print(f"Error getting tracking IDs: {e}")
             return []
-        # ============ Feedback Functions ============
-        # ============ Feedback Functions ============
+    
+    # ============ Feedback Functions ============
     
     def save_feedback(self, tracking_id, rating, feedback_text):
         """Save citizen feedback for a complaint"""
@@ -267,13 +281,30 @@ class DatabaseManager:
             ''')
             
             now = datetime.now()
-            cursor.execute('''
-                INSERT INTO feedback (tracking_id, rating, feedback_text, is_read, created_at)
-                VALUES (?, ?, ?, ?, ?)
-            ''', (tracking_id, rating, feedback_text, 0, now))
+            
+            # Check if feedback already exists
+            cursor.execute('SELECT id FROM feedback WHERE tracking_id = ?', (tracking_id,))
+            existing = cursor.fetchone()
+            
+            if existing:
+                # Update existing feedback
+                cursor.execute('''
+                    UPDATE feedback 
+                    SET rating = ?, feedback_text = ?, is_read = 0, created_at = ?
+                    WHERE tracking_id = ?
+                ''', (rating, feedback_text, now, tracking_id))
+                feedback_id = existing[0]
+                print(f"🔄 Updated existing feedback for {tracking_id}")
+            else:
+                # Insert new feedback
+                cursor.execute('''
+                    INSERT INTO feedback (tracking_id, rating, feedback_text, is_read, created_at)
+                    VALUES (?, ?, ?, ?, ?)
+                ''', (tracking_id, rating, feedback_text, 0, now))
+                feedback_id = cursor.lastrowid
+                print(f"➕ Created new feedback for {tracking_id}")
             
             conn.commit()
-            feedback_id = cursor.lastrowid
             conn.close()
             
             print(f"✅ Feedback saved with ID: {feedback_id}")
@@ -281,6 +312,8 @@ class DatabaseManager:
             
         except Exception as e:
             print(f"❌ Error saving feedback: {e}")
+            import traceback
+            traceback.print_exc()
             return None
     
     def get_feedback_by_tracking_id(self, tracking_id):
@@ -290,7 +323,10 @@ class DatabaseManager:
             cursor = conn.cursor()
             
             cursor.execute('''
-                SELECT * FROM feedback WHERE tracking_id = ? ORDER BY created_at DESC
+                SELECT id, tracking_id, rating, feedback_text, is_read, created_at 
+                FROM feedback 
+                WHERE tracking_id = ? 
+                ORDER BY created_at DESC
             ''', (tracking_id,))
             
             results = cursor.fetchall()
@@ -309,11 +345,16 @@ class DatabaseManager:
             
             if is_read is not None:
                 cursor.execute('''
-                    SELECT * FROM feedback WHERE is_read = ? ORDER BY created_at DESC
+                    SELECT id, tracking_id, rating, feedback_text, is_read, created_at 
+                    FROM feedback 
+                    WHERE is_read = ? 
+                    ORDER BY created_at DESC
                 ''', (is_read,))
             else:
                 cursor.execute('''
-                    SELECT * FROM feedback ORDER BY created_at DESC
+                    SELECT id, tracking_id, rating, feedback_text, is_read, created_at 
+                    FROM feedback 
+                    ORDER BY created_at DESC
                 ''')
             
             results = cursor.fetchall()
@@ -336,8 +377,19 @@ class DatabaseManager:
         except Exception as e:
             print(f"Error marking feedback as read: {e}")
             return False
-       
     
-    
+    def delete_feedback(self, tracking_id):
+        """Delete feedback for a complaint (useful for testing)"""
+        try:
+            conn = self._get_connection()
+            cursor = conn.cursor()
+            cursor.execute('DELETE FROM feedback WHERE tracking_id = ?', (tracking_id,))
+            conn.commit()
+            conn.close()
+            return True
+        except Exception as e:
+            print(f"Error deleting feedback: {e}")
+            return False
+
 # Create instance
 db = DatabaseManager()

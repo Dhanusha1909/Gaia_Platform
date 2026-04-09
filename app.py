@@ -680,21 +680,34 @@ elif portal == "🔍 Track Complaint":
     st.header("🔍 Track Your Complaint")
     st.write("Enter your Tracking ID to check the status of your complaint.")
     
+    # Initialize session state for tracking
+    if 'current_tracking_id' not in st.session_state:
+        st.session_state.current_tracking_id = None
+    
     col1, col2 = st.columns([2, 1])
     
     with col1:
         tracking_input = st.text_input(
             "Enter Tracking ID",
             placeholder="e.g., GAIA-20250407-ABC123",
-            help="Enter the Tracking ID you received after submitting your complaint"
+            help="Enter the Tracking ID you received after submitting your complaint",
+            key="tracking_input_field"
         ).upper().strip()
     
     with col2:
         track_button = st.button("🔍 Track Complaint", type="primary", use_container_width=True)
     
     if track_button and tracking_input:
+        # Store the tracking ID in session state
+        st.session_state.current_tracking_id = tracking_input
+        st.rerun()
+    
+    # Use the stored tracking ID
+    if st.session_state.current_tracking_id:
+        tracking_id = st.session_state.current_tracking_id
+        
         with st.spinner("Fetching complaint details..."):
-            complaint = db.get_complaint_by_tracking_id(tracking_input)
+            complaint = db.get_complaint_by_tracking_id(tracking_id)
             
             if complaint:
                 st.success("✅ Complaint Found!")
@@ -713,11 +726,11 @@ elif portal == "🔍 Track Complaint":
                 progress_map = {'PENDING': 25, 'IN_PROGRESS': 50, 'RESOLVED': 100, 'REJECTED': 100}
                 progress_value = progress_map.get(status, 0)
                 
-                # Status header - FIXED: Proper f-string without HTML in Python string
+                # Status header
                 st.markdown(
                     f'<div style="background: linear-gradient(135deg, #1a237e, #0d47a1); padding: 20px; border-radius: 15px; margin: 10px 0;">'
                     f'<h2 style="color: white; text-align: center;">{status_icon} Status: {status_text}</h2>'
-                    f'<p style="color: white; text-align: center;">Tracking ID: {tracking_input}</p>'
+                    f'<p style="color: white; text-align: center;">Tracking ID: {tracking_id}</p>'
                     f'</div>',
                     unsafe_allow_html=True
                 )
@@ -753,55 +766,60 @@ elif portal == "🔍 Track Complaint":
                             st.write(complaint.get('translated_text'))
                 
                 # FEEDBACK SECTION (Only when status is RESOLVED)
-                              
                 if status == 'RESOLVED':
                     st.markdown("---")
                     st.subheader("📝 Share Your Feedback")
                     st.write("How satisfied are you with the resolution of your complaint?")
                     
-                    # Check if feedback already given in database
-                    existing_feedback = db.get_feedback_by_tracking_id(tracking_input)
+                    # Get existing feedback
+                    existing_feedback = db.get_feedback_by_tracking_id(tracking_id)
                     
-                    # Check session state for submitted flag
-                    feedback_key = f"feedback_done_{tracking_input}"
+                    # Show debug info in expander (can be removed later)
+                    with st.expander("🔍 Debug Info", expanded=False):
+                        st.write(f"Tracking ID: {tracking_id}")
+                        st.write(f"Existing feedback count: {len(existing_feedback) if existing_feedback else 0}")
+                        if existing_feedback:
+                            st.write(f"Feedback data: {existing_feedback[0]}")
                     
+                    # Check if feedback already exists
                     if existing_feedback and len(existing_feedback) > 0:
-                        # Show existing feedback
                         st.success("✅ Thank you for your feedback! Your response has been recorded.")
-                        with st.expander("View your submitted feedback"):
-                            fb = existing_feedback[0]
-                            st.write(f"**Rating:** {fb.get('rating')}")
-                            st.write(f"**Feedback:** {fb.get('feedback_text')}")
-                            st.write(f"**Submitted on:** {fb.get('created_at')}")
-                    
-                    elif st.session_state.get(feedback_key, False):
-                        # Just submitted, show success
-                        st.success("✅ Thank you for your feedback! Your response has been recorded.")
-                        st.balloons()
+                        fb = existing_feedback[0]
+                        st.write(f"**Your Rating:** {fb.get('rating')}")
+                        st.write(f"**Your Feedback:** {fb.get('feedback_text')}")
+                        st.write(f"**Submitted on:** {fb.get('created_at')}")
                     
                     else:
-                        # Show feedback form
-                        rating = st.select_slider(
-                            "Rate your satisfaction",
-                            options=["Very Poor", "Poor", "Average", "Good", "Excellent"],
-                            value="Good",
-                            key=f"rating_{tracking_input}"
-                        )
-                        
-                        feedback_text = st.text_area(
-                            "Your feedback (optional)", 
-                            placeholder="Share your experience...",
-                            key=f"fb_text_{tracking_input}"
-                        )
-                        
-                        if st.button("Submit Feedback", type="primary", key=f"submit_{tracking_input}"):
-                            result = db.save_feedback(tracking_input, rating, feedback_text if feedback_text else "No comment")
-                            if result:
-                                st.session_state[feedback_key] = True
-                                st.success("✅ Thank you for your feedback!")
-                                st.balloons()
-                            else:
-                                st.error("❌ Failed to save feedback. Please try again.")
+                        # Feedback form
+                        with st.form(key=f"feedback_form_{tracking_id}"):
+                            rating = st.select_slider(
+                                "Rate your satisfaction",
+                                options=["Very Poor", "Poor", "Average", "Good", "Excellent"],
+                                value="Good"
+                            )
+                            
+                            feedback_text = st.text_area(
+                                "Your feedback (optional)", 
+                                placeholder="Share your experience with the resolution process...",
+                                height=100
+                            )
+                            
+                            submitted = st.form_submit_button("Submit Feedback", type="primary", use_container_width=True)
+                            
+                            if submitted:
+                                # Save feedback
+                                result = db.save_feedback(
+                                    tracking_id, 
+                                    rating, 
+                                    feedback_text if feedback_text.strip() else "No comment provided"
+                                )
+                                
+                                if result:
+                                    st.success("✅ Thank you for your feedback! Your response has been recorded.")
+                                    st.balloons()
+                                    st.rerun()
+                                else:
+                                    st.error("❌ Failed to save feedback. Please try again.")
                 
                 # Next steps
                 st.markdown("---")
@@ -814,11 +832,20 @@ elif portal == "🔍 Track Complaint":
                 elif status == 'REJECTED':
                     st.error("❌ Your complaint could not be verified. Please contact support for more information.")
                 
+                # Clear button
+                if st.button("🔍 Track Another Complaint"):
+                    st.session_state.current_tracking_id = None
+                    st.rerun()
+                
             else:
-                st.error(f"❌ No complaint found with Tracking ID: {tracking_input}")
+                st.error(f"❌ No complaint found with Tracking ID: {tracking_id}")
+                if st.button("Try Another ID"):
+                    st.session_state.current_tracking_id = None
+                    st.rerun()
     
-    elif track_button and not tracking_input:
-        st.warning("⚠️ Please enter your Tracking ID")
+    elif not st.session_state.current_tracking_id and not track_button:
+        st.info("👆 Enter your tracking ID above to check your complaint status")
+
 
 elif portal == "📊 Analytics":
     st.header("📊 Sustainability Analytics - Officer Dashboard")
