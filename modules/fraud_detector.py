@@ -218,14 +218,14 @@ class FraudDetector:
         # 1. Consistency checks
         consistency_flags = self.check_consistency(metrics)
         if consistency_flags:
-            fraud_score += 0.25
+            fraud_score += 0.35
             reasons.extend(consistency_flags)
         
         # 2. Industry benchmark checks
         if industry:
             benchmark_flags = self.check_industry_benchmarks(metrics, industry)
             if benchmark_flags:
-                fraud_score += 0.20
+                fraud_score += 0.25
                 reasons.extend(benchmark_flags)
         
         # 3. Rounding pattern detection
@@ -239,7 +239,7 @@ class FraudDetector:
         if text:
             template_flags = self.detect_template_patterns(text)
             if template_flags:
-                fraud_score += 0.20
+                fraud_score += 0.30
                 reasons.extend(template_flags)
         
         # 5. Unit inconsistency detection
@@ -267,6 +267,31 @@ class FraudDetector:
             reasons.append(f"⚠️ Missing {missing_fields[0].replace('_', ' ')} - report incomplete")
         
         # Cap at 1.0
+        
+        # 🚨 HARD FRAUD CONDITIONS (instant strong flag)
+        hard_flags = 0
+
+        # 1. No core environmental data
+        if metrics.get('co2_emissions') is None and metrics.get('water_usage') is None:
+            hard_flags += 1
+            reasons.append("🚨 No core environmental data found")
+
+        # 2. Very short + no numbers
+        if text and len(text) < 150 and not re.search(r"\d", text):
+            hard_flags += 1
+            reasons.append("🚨 Extremely low-content report with no measurable data")
+
+        # 3. Strong AI-generated pattern
+        if text:
+            ai_count = sum(1 for pattern in self.ai_patterns if re.search(pattern, text.lower()))
+            if ai_count > 4:
+                hard_flags += 1
+                reasons.append("🚨 Strong AI-generated content pattern detected")
+
+        # Apply override if hard fraud detected
+        if hard_flags >= 1:
+            fraud_score = max(fraud_score, 0.6)
+        
         fraud_score = min(fraud_score, 1.0)
         
         # Determine severity

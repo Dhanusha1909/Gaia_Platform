@@ -267,6 +267,24 @@ class TextAnalyzer:
             suggestions.append("✅ GOOD COMPLIANCE: Maintain current practices. Regular monitoring recommended.")
         
         return suggestions
+    def extract_metrics(self, text): 
+        text = text.lower()
+    
+        metrics = {}
+
+        # CO2 Emissions
+        co2_match = re.search(r'co2\s*emissions?\s*[:\-]?\s*(\d+)', text)
+        metrics['co2_emissions'] = int(co2_match.group(1)) if co2_match else None
+
+        # Water Usage
+        water_match = re.search(r'water\s*usage\s*[:\-]?\s*(\d+)', text)
+        metrics['water_usage'] = int(water_match.group(1)) if water_match else None
+
+        # Waste Generated
+        waste_match = re.search(r'waste\s*(generated)?\s*[:\-]?\s*(\d+)', text)
+        metrics['waste_generated'] = int(waste_match.group(2)) if waste_match else None
+
+        return metrics
     
     def analyze(self, text):
         """Complete analysis of report"""

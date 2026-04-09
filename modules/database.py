@@ -378,18 +378,33 @@ class DatabaseManager:
             print(f"Error marking feedback as read: {e}")
             return False
     
-    def delete_feedback(self, tracking_id):
-        """Delete feedback for a complaint (useful for testing)"""
+    def delete_feedback(self, feedback_id):
+        """Delete a specific feedback by ID"""
         try:
             conn = self._get_connection()
             cursor = conn.cursor()
-            cursor.execute('DELETE FROM feedback WHERE tracking_id = ?', (tracking_id,))
+            cursor.execute("DELETE FROM feedback WHERE id = ?", (feedback_id,))
             conn.commit()
+            success = cursor.rowcount > 0
             conn.close()
-            return True
+            return success
         except Exception as e:
             print(f"Error deleting feedback: {e}")
             return False
+
+    def delete_all_read_feedback(self):
+        """Delete all feedback that has been marked as read"""
+        try:
+            conn = self._get_connection()
+            cursor = conn.cursor()
+            cursor.execute("DELETE FROM feedback WHERE is_read = 1")
+            conn.commit()
+            deleted_count = cursor.rowcount
+            conn.close()
+            return deleted_count
+        except Exception as e:
+            print(f"Error deleting read feedback: {e}")
+            return 0
 
 # Create instance
 db = DatabaseManager()

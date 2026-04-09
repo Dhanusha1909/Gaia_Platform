@@ -129,7 +129,7 @@ if portal == "🏭 Officer Dashboard":
                     with st.spinner("Reading file..."):
                         if report_file.type == "application/pdf":
                             try:
-                                import pdfplumber
+                                import pdfplumber # pyright: ignore[reportMissingImports]
                                 with pdfplumber.open(report_file) as pdf:
                                     text = "".join([page.extract_text() or "" for page in pdf.pages])
                             except Exception as e:
@@ -159,95 +159,121 @@ if portal == "🏭 Officer Dashboard":
                         
                         # Save to database
                         db.save_report(factory_name, text, score, fraud['is_fake'], fraud['fraud_score'], industry=industry)
-                    
-                    # Display Results
-                    st.divider()
-                    st.subheader("📊 Analysis Results")
+                        
+                        st.session_state['analysis_result'] = {
+                            "analysis": analysis,
+                            "fraud": fraud,
+                            "score": score,
+                            "status": status,
+                            "emissions": emissions,
+                            "factory_name": factory_name
+                        }
+        # ✅ DISPLAY SECTION (OUTSIDE BUTTON)
+        if 'analysis_result' in st.session_state:
+
+            data = st.session_state['analysis_result']
+
+            analysis = data['analysis']
+            fraud = data['fraud']
+            score = data['score']
+            status = data['status']
+            emissions = data['emissions']
+            factory_name = data['factory_name']
+
+            st.divider()
+            st.subheader("📊 Analysis Results")
                     
                     # Score display
-                    col1, col2, col3 = st.columns([1, 1, 1])
+            col1, col2, col3 = st.columns([1, 1, 1])
                     
-                    with col1:
-                        status_class = status['status'].lower()
-                        st.markdown(f"""
-                        <div class="{status_class}">
-                            <div class="big-score">{score}</div>
-                            <h3 style="text-align:center">{status['icon']} {status['status']}</h3>
-                            <p style="text-align:center">{status['message']}</p>
-                        </div>
-                        """, unsafe_allow_html=True)
-                    
-                    with col2:
-                        st.markdown('<div class="metric-card">', unsafe_allow_html=True)
-                        st.subheader("📈 Key Metrics")
-                        metrics = analysis['metrics']
-                        for key, value in metrics.items():
-                            if value:
-                                metric_name = key.replace('_', ' ').title()
-                                if key == 'co2_emissions':
-                                    st.metric(metric_name, f"{value:,.0f} tons")
-                                elif key == 'water_usage':
-                                    st.metric(metric_name, f"{value:,.0f} ML")
-                                elif key == 'waste_generated':
-                                    st.metric(metric_name, f"{value:,.0f} tons")
-                                elif key == 'renewable_percent':
-                                    st.metric(metric_name, f"{value:.0f}%")
-                                elif key == 'tree_planted':
-                                    st.metric(metric_name, f"{value:,.0f}")
-                                else:
-                                    st.metric(metric_name, f"{value:,.0f}")
-                            else:
-                                st.metric(key.replace('_', ' ').title(), "Not Detected")
-                        st.markdown('</div>', unsafe_allow_html=True)
-                    
-                    with col3:
-                        st.markdown('<div class="metric-card">', unsafe_allow_html=True)
-                        st.subheader("🔍 Fraud Analysis")
-                        if fraud['is_fake']:
-                            st.error(f"⚠️ FAKE REPORT DETECTED")
-                            st.warning(f"Fraud Score: {fraud['fraud_score']*100:.0f}%")
-                            st.write("**Reasons:**")
-                            for reason in fraud['reasons'][:3]:
-                                st.write(f"• {reason}")
+            with col1:
+                status_class = status['status'].lower()
+                st.markdown(f"""
+                <div class="{status_class}">
+                    <div class="big-score">{score}</div>
+                    <h3 style="text-align:center">{status['icon']} {status['status']}</h3>
+                    <p style="text-align:center">{status['message']}</p>
+                </div>
+                """, unsafe_allow_html=True)
+            
+            with col2:
+                st.markdown('<div class="metric-card">', unsafe_allow_html=True)
+                st.subheader("📈 Key Metrics")
+                metrics = analysis['metrics']
+                for key, value in metrics.items():
+                    if value:
+                        metric_name = key.replace('_', ' ').title()
+                        if key == 'co2_emissions':
+                            st.metric(metric_name, f"{value:,.0f} tons")
+                        elif key == 'water_usage':
+                            st.metric(metric_name, f"{value:,.0f} ML")
+                        elif key == 'waste_generated':
+                            st.metric(metric_name, f"{value:,.0f} tons")
+                        elif key == 'renewable_percent':
+                            st.metric(metric_name, f"{value:.0f}%")
+                        elif key == 'tree_planted':
+                            st.metric(metric_name, f"{value:,.0f}")
                         else:
-                            st.success(f"✓ Report Appears Authentic")
-                            st.info(f"Confidence: {(1-fraud['fraud_score'])*100:.0f}%")
-                        st.markdown('</div>', unsafe_allow_html=True)
+                            st.metric(metric_name, f"{value:,.0f}")
+                    else:
+                        st.metric(key.replace('_', ' ').title(), "Not Detected")
+                st.markdown('</div>', unsafe_allow_html=True)
+            
+            with col3:
+                st.markdown('<div class="metric-card">', unsafe_allow_html=True)
+                st.subheader("🔍 Fraud Analysis")
+                fraud_percent = fraud['fraud_score'] * 100
+
+                st.progress(fraud['fraud_score'])
+
+                st.subheader(f"{fraud['severity_icon']} Fraud Risk: {fraud_percent:.0f}% ({fraud['severity']})")
+
+                if fraud['severity'] == "HIGH":
+                    st.error("❌ HIGH RISK - Likely Fraud")
+                elif fraud['severity'] == "MEDIUM":
+                    st.warning("⚠️ Suspicious Report")
+                else:
+                    st.success("✅ Likely Genuine")
+
+                st.write("**Reasons:**")
+                for reason in fraud['reasons'][:5]:
+                    st.write(f"• {reason}")
+                    
+                st.markdown('</div>', unsafe_allow_html=True)
+
                     
                     # Suggestions
-                    st.subheader("💡 Improvement Suggestions")
-                    for suggestion in analysis['suggestions']:
-                        if "CRITICAL" in suggestion or "FINAL WARNING" in suggestion:
-                            st.error(f"🚨 {suggestion}")
-                        elif "WARNING" in suggestion:
-                            st.warning(f"⚠️ {suggestion}")
-                        else:
-                            st.info(f"📌 {suggestion}")
+                st.subheader("💡 Improvement Suggestions")
+                for suggestion in analysis['suggestions']:
+                    if "CRITICAL" in suggestion or "FINAL WARNING" in suggestion:
+                        st.error(f"🚨 {suggestion}")
+                    elif "WARNING" in suggestion:
+                        st.warning(f"⚠️ {suggestion}")
+                    else:
+                        st.info(f"📌 {suggestion}")
                     
                     # Actions
-                    st.divider()
-                    st.subheader("📨 Automated Actions")
+            st.divider()
+            st.subheader("📨 Send Notification")
                     
-                    col1, col2 = st.columns(2)
-                    
-                    with col1:
-                        # Generate and send warning
-                        warning = notification_system.generate_warning(
-                            factory_name, score, analysis['suggestions'], fraud['is_fake']
-                        )
-                        
-                        if st.button("📧 Send Notification to Factory"):
-                            notification_system.send(factory_name.replace(" ", ".").lower() + "@example.com", warning)
-                            st.success(f"✅ Notification sent to {factory_name}")
-                    
-                    with col2:
-                        if fraud['is_fake']:
-                            st.error("🚨 This report has been flagged for fraud")
-                            if st.button("📢 Escalate to Legal Department"):
-                                st.warning("⚠️ Case escalated. Legal action initiated.")
-                    
-                    # Green AI Metrics
-                    st.caption(f"🌱 AI Carbon Footprint for this analysis: **{emissions:.3f} gCO₂**")
+            email = st.text_input("Email ID")
+            message = st.text_area("Message")
+
+            if st.button("Send Notification", key="send_custom"):
+                if not email:
+                    st.error("Enter email")
+                elif not message:
+                    st.error("Enter message")
+                else:
+                    notification_system.send(email, {
+                    "type": "custom",
+                    "title": "Manual Notification",
+                    "body": message
+                    })
+                    st.success("Email Sent ✅")
+
+            # ✅ Carbon
+            st.caption(f"🌱 Emissions: {emissions:.3f} gCO₂")
     
     with tab2:
         st.subheader("🚨 Fraud Alerts")
@@ -435,7 +461,7 @@ elif portal == "📱 Citizen Report":
         if process_text and text_complaint:
             with st.spinner("Translating your complaint..."):
                 try:
-                    from deep_translator import GoogleTranslator
+                    from deep_translator import GoogleTranslator # pyright: ignore[reportMissingImports]
                     
                     # Determine source language
                     if manual_lang != "Auto-detect":
@@ -995,6 +1021,7 @@ elif portal == "📊 Analytics":
                 st.metric("✅ Resolved", resolved_count)
             with col4:
                 st.metric("📊 Total", len(all_complaints))
+                
             
             # ============================================================
             # Selected Complaint Details
@@ -1115,41 +1142,207 @@ elif portal == "📊 Analytics":
                         else:
                             st.error("❌ Please confirm deletion")
             
-            # ============================================================
-            # All Feedback Overview
-            # ============================================================
-            st.markdown("---")
-            st.subheader("📊 All Citizen Feedback Overview")
-            
-            all_feedback = db.get_all_feedback()
-            
-            if all_feedback and len(all_feedback) > 0:
-                col1, col2, col3 = st.columns(3)
-                with col1:
-                    st.metric("📝 Total Feedback", len(all_feedback))
-                with col2:
-                    unread_count = sum(1 for fb in all_feedback if fb.get('is_read') == 0)
-                    st.metric("🆕 Unread", unread_count)
-                with col3:
-                    rating_map = {"Very Poor": 1, "Poor": 2, "Average": 3, "Good": 4, "Excellent": 5}
-                    ratings = [rating_map.get(fb.get('rating'), 3) for fb in all_feedback if fb.get('rating')]
-                    avg_rating = sum(ratings) / len(ratings) if ratings else 0
-                    st.metric("⭐ Avg Rating", f"{avg_rating:.1f}/5")
-                
-                for fb in all_feedback[:10]:
-                    col1, col2, col3 = st.columns([2, 3, 1])
+                # All Feedback Overview
+                # ============================================================
+                st.markdown("---")
+                st.subheader("📊 All Citizen Feedback Overview")
+
+                all_feedback = db.get_all_feedback()
+
+                if all_feedback and len(all_feedback) > 0:
+                    # Statistics row
+                    col1, col2, col3, col4 = st.columns(4)
                     with col1:
-                        st.write(f"**{fb.get('tracking_id')}**")
+                        st.metric("📝 Total Feedback", len(all_feedback))
                     with col2:
-                        st.write(f"⭐ {fb.get('rating')} - {fb.get('feedback_text')[:100]}...")
+                        unread_count = sum(1 for fb in all_feedback if fb.get('is_read') == 0)
+                        st.metric("🆕 Unread", unread_count)
                     with col3:
-                        if fb.get('is_read') == 0:
-                            st.warning("🆕 New")
-                        else:
-                            st.caption("📖 Read")
-                    st.divider()
-            else:
-                st.info("No feedback received yet.")
+                        read_count = sum(1 for fb in all_feedback if fb.get('is_read') == 1)
+                        st.metric("📖 Read", read_count)
+                    with col4:
+                        rating_map = {"Very Poor": 1, "Poor": 2, "Average": 3, "Good": 4, "Excellent": 5}
+                        ratings = [rating_map.get(fb.get('rating'), 3) for fb in all_feedback if fb.get('rating')]
+                        avg_rating = sum(ratings) / len(ratings) if ratings else 0
+                        st.metric("⭐ Avg Rating", f"{avg_rating:.1f}/5")
+                        
+                        # Feedback rating distribution chart
+                    st.markdown("---")
+                    st.subheader("📊 Feedback Rating Distribution")
+
+                    rating_counts = {"Excellent": 0, "Good": 0, "Average": 0, "Poor": 0, "Very Poor": 0}
+                    for fb in all_feedback:
+                        rating = fb.get('rating')
+                        if rating in rating_counts:
+                            rating_counts[rating] += 1
+
+                    import plotly.express as px # pyright: ignore[reportMissingImports]
+                    import pandas as pd # pyright: ignore[reportMissingModuleSource]
+
+                    df_ratings = pd.DataFrame({
+                        'Rating': list(rating_counts.keys()),
+                        'Count': list(rating_counts.values())
+                    })
+
+                    # Custom colors
+                    color_map = {
+                        'Excellent': '#4CAF50',
+                        'Good': '#8BC34A',
+                        'Average': '#FFC107',
+                        'Poor': '#FF9800',
+                        'Very Poor': '#F44336'
+                    }
+
+                    fig = px.bar(df_ratings, x='Rating', y='Count', 
+                                title='Citizen Satisfaction Distribution',
+                                color='Rating',
+                                color_discrete_map=color_map)
+                    st.plotly_chart(fig, use_container_width=True)
+                    
+                    # Action buttons row
+                    st.markdown("---")
+                    col1, col2, col3, col4 = st.columns([1, 1, 1, 1])
+                    
+                    with col1:
+                        if st.button("🗑️ Delete All Read Feedback", type="secondary", use_container_width=True):
+                            if read_count > 0:
+                                deleted = db.delete_all_read_feedback()
+                                if deleted > 0:
+                                    st.success(f"✅ Deleted {deleted} read feedback entries!")
+                                    st.rerun()
+                                else:
+                                    st.error("❌ Failed to delete feedback")
+                            else:
+                                st.warning("⚠️ No read feedback to delete")
+                    
+                    with col2:
+                        if st.button("📋 Export Feedback (CSV)", type="secondary", use_container_width=True):
+                            # Create CSV export
+                            import pandas as pd # pyright: ignore[reportMissingModuleSource]
+                            df_feedback = pd.DataFrame(all_feedback)
+                            csv = df_feedback.to_csv(index=False)
+                            st.download_button(
+                                label="📥 Download CSV",
+                                data=csv,
+                                file_name=f"gaia_feedback_{datetime.now().strftime('%Y%m%d')}.csv",
+                                mime="text/csv"
+                            )
+                    
+                    st.markdown("---")
+                    
+                    # Feedback list with delete buttons
+                    st.subheader("📋 Feedback List")
+                    
+                    # Filter options
+                    filter_option = st.radio(
+                        "Filter by status:",
+                        ["All", "Unread Only", "Read Only"],
+                        horizontal=True,
+                        key="feedback_filter"
+                    )
+                    
+                    filtered_feedback = all_feedback
+                    if filter_option == "Unread Only":
+                        filtered_feedback = [fb for fb in all_feedback if fb.get('is_read') == 0]
+                    elif filter_option == "Read Only":
+                        filtered_feedback = [fb for fb in all_feedback if fb.get('is_read') == 1]
+                    
+                    if filtered_feedback:
+                        for idx, fb in enumerate(filtered_feedback[:20]):  # Show last 20
+                            with st.container():
+                                col1, col2, col3, col4, col5 = st.columns([2, 3, 1, 1, 1])
+                                
+                                with col1:
+                                    st.write(f"**{fb.get('tracking_id')}**")
+                                
+                                with col2:
+                                    rating_display = fb.get('rating', 'N/A')
+                                    feedback_preview = fb.get('feedback_text', '')[:80]
+                                    if len(fb.get('feedback_text', '')) > 80:
+                                        feedback_preview += "..."
+                                    st.write(f"⭐ {rating_display} - {feedback_preview}")
+                                    
+                                    # Show full feedback in expander
+                                    with st.expander("View Full Feedback"):
+                                        st.write(f"**Rating:** {fb.get('rating')}")
+                                        st.write(f"**Feedback:** {fb.get('feedback_text')}")
+                                        st.write(f"**Date:** {fb.get('created_at')}")
+                                
+                                with col3:
+                                    if fb.get('is_read') == 0:
+                                        st.warning("🆕 New")
+                                        if st.button("📖 Mark Read", key=f"mark_read_overview_{fb.get('id')}"):
+                                            db.mark_feedback_as_read(fb.get('id'))
+                                            st.rerun()
+                                    else:
+                                        st.success("📖 Read")
+                                
+                                with col4:
+                                    # Delete single feedback button
+                                    if fb.get('is_read') == 1:
+                                        if st.button("🗑️ Delete", key=f"delete_fb_{fb.get('id')}"):
+                                            if db.delete_feedback(fb.get('id')):
+                                                st.success("✅ Deleted!")
+                                                st.rerun()
+                                            else:
+                                                st.error("❌ Failed")
+                                    else:
+                                        st.caption("Mark read to delete")
+                                
+                                with col5:
+                                    # View complaint link
+                                    if st.button("🔍 View", key=f"view_complaint_{fb.get('id')}"):
+                                        st.session_state.selected_complaint_tracking = fb.get('tracking_id')
+                                        st.rerun()
+                                
+                                st.divider()
+                        
+                        if len(filtered_feedback) > 20:
+                            st.caption(f"Showing 20 of {len(filtered_feedback)} feedback entries")
+                    else:
+                        st.info("No feedback matching the filter")
+                    
+                    # Bulk delete confirmation
+                    st.markdown("---")
+                    with st.expander("⚠️ Bulk Delete Options", expanded=False):
+                        st.warning("These actions cannot be undone!")
+                        
+                        col1, col2 = st.columns(2)
+                        
+                        with col1:
+                            if st.button("🗑️ Delete ALL Read Feedback", type="primary", use_container_width=True):
+                                if read_count > 0:
+                                    deleted = db.delete_all_read_feedback()
+                                    st.success(f"✅ Deleted {deleted} read feedback entries!")
+                                    st.rerun()
+                                else:
+                                    st.info("No read feedback to delete")
+                        
+                        with col2:
+                            # Delete feedback older than 30 days
+                            if st.button("🗑️ Delete Feedback > 30 Days", type="primary", use_container_width=True):
+                                try:
+                                    import sqlite3
+                                    from datetime import datetime, timedelta
+                                    
+                                    conn = sqlite3.connect("data/gaia.db")
+                                    cursor = conn.cursor()
+                                    cutoff_date = (datetime.now() - timedelta(days=30)).isoformat()
+                                    cursor.execute("DELETE FROM feedback WHERE is_read = 1 AND created_at < ?", (cutoff_date,))
+                                    deleted = cursor.rowcount
+                                    conn.commit()
+                                    conn.close()
+                                    
+                                    if deleted > 0:
+                                        st.success(f"✅ Deleted {deleted} old feedback entries!")
+                                        st.rerun()
+                                    else:
+                                        st.info("No old feedback to delete")
+                                except Exception as e:
+                                    st.error(f"Error: {e}")
+
+                else:
+                    st.info("No feedback received yet.")
         
         else:
             st.info("No complaints found. Submit a complaint first.")

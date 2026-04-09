@@ -300,6 +300,35 @@ Thank you for helping protect our environment. Every complaint helps build a cle
         
         # Add to history
         self.sent_notifications.append(notification_data)
+        # ---------------- EMAIL SENDING (ADD THIS) ----------------
+        try:
+            import smtplib
+            from email.mime.text import MIMEText
+            from email.mime.multipart import MIMEMultipart
+
+            sender_email = "aarthi200611@gmail.com"       # 🔴 CHANGE THIS
+            app_password = "eqxu qoyi ycce rixx"         # 🔴 CHANGE THIS
+
+            subject = notification.get('subject', 'GAIA Notification')
+            body = notification.get('body', '')
+
+            msg = MIMEMultipart()
+            msg['From'] = sender_email
+            msg['To'] = to
+            msg['Subject'] = subject
+
+            msg.attach(MIMEText(body, 'plain'))
+
+            server = smtplib.SMTP("smtp.gmail.com", 587)
+            server.starttls()
+            server.login(sender_email, app_password)
+            server.send_message(msg)
+            server.quit()
+
+            print("✅ Email sent successfully")
+
+        except Exception as e:
+            print("❌ Email sending failed:", e)
         
         # Store for reminders if deadline exists
         if notification.get('deadline_days') and notification.get('action_required'):
