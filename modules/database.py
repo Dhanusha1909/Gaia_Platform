@@ -1,10 +1,10 @@
 # modules/database.py
 import sqlite3
 import json
-import pandas as pd
+import pandas as pd # pyright: ignore[reportMissingModuleSource]
 from datetime import datetime, timedelta
 import os
-import streamlit as st
+import streamlit as st # pyright: ignore[reportMissingImports]
 
 class DatabaseManager:
     """Manage SQLite database for GAIA"""
@@ -243,6 +243,101 @@ class DatabaseManager:
         except Exception as e:
             print(f"Error getting tracking IDs: {e}")
             return []
-
+        # ============ Feedback Functions ============
+        # ============ Feedback Functions ============
+    
+    def save_feedback(self, tracking_id, rating, feedback_text):
+        """Save citizen feedback for a complaint"""
+        try:
+            print(f"🔍 DEBUG: Saving feedback - tracking_id: {tracking_id}, rating: {rating}")
+            
+            conn = self._get_connection()
+            cursor = conn.cursor()
+            
+            # Create feedback table if not exists
+            cursor.execute('''
+                CREATE TABLE IF NOT EXISTS feedback (
+                    id INTEGER PRIMARY KEY AUTOINCREMENT,
+                    tracking_id TEXT NOT NULL,
+                    rating TEXT,
+                    feedback_text TEXT,
+                    is_read BOOLEAN DEFAULT 0,
+                    created_at TIMESTAMP
+                )
+            ''')
+            
+            now = datetime.now()
+            cursor.execute('''
+                INSERT INTO feedback (tracking_id, rating, feedback_text, is_read, created_at)
+                VALUES (?, ?, ?, ?, ?)
+            ''', (tracking_id, rating, feedback_text, 0, now))
+            
+            conn.commit()
+            feedback_id = cursor.lastrowid
+            conn.close()
+            
+            print(f"✅ Feedback saved with ID: {feedback_id}")
+            return feedback_id
+            
+        except Exception as e:
+            print(f"❌ Error saving feedback: {e}")
+            return None
+    
+    def get_feedback_by_tracking_id(self, tracking_id):
+        """Get feedback for a specific complaint"""
+        try:
+            conn = self._get_connection()
+            cursor = conn.cursor()
+            
+            cursor.execute('''
+                SELECT * FROM feedback WHERE tracking_id = ? ORDER BY created_at DESC
+            ''', (tracking_id,))
+            
+            results = cursor.fetchall()
+            conn.close()
+            return [dict(row) for row in results]
+            
+        except Exception as e:
+            print(f"Error getting feedback: {e}")
+            return []
+    
+    def get_all_feedback(self, is_read=None):
+        """Get all feedback, optionally filtered by read status"""
+        try:
+            conn = self._get_connection()
+            cursor = conn.cursor()
+            
+            if is_read is not None:
+                cursor.execute('''
+                    SELECT * FROM feedback WHERE is_read = ? ORDER BY created_at DESC
+                ''', (is_read,))
+            else:
+                cursor.execute('''
+                    SELECT * FROM feedback ORDER BY created_at DESC
+                ''')
+            
+            results = cursor.fetchall()
+            conn.close()
+            return [dict(row) for row in results]
+            
+        except Exception as e:
+            print(f"Error getting feedback: {e}")
+            return []
+    
+    def mark_feedback_as_read(self, feedback_id):
+        """Mark feedback as read by officer"""
+        try:
+            conn = self._get_connection()
+            cursor = conn.cursor()
+            cursor.execute('UPDATE feedback SET is_read = 1 WHERE id = ?', (feedback_id,))
+            conn.commit()
+            conn.close()
+            return True
+        except Exception as e:
+            print(f"Error marking feedback as read: {e}")
+            return False
+       
+    
+    
 # Create instance
 db = DatabaseManager()

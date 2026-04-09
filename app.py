@@ -697,7 +697,7 @@ elif portal == "🔍 Track Complaint":
             complaint = db.get_complaint_by_tracking_id(tracking_input)
             
             if complaint:
-                st.success(f"✅ Complaint Found!")
+                st.success("✅ Complaint Found!")
                 
                 # Status display
                 status = complaint.get('status', 'PENDING')
@@ -713,12 +713,14 @@ elif portal == "🔍 Track Complaint":
                 progress_map = {'PENDING': 25, 'IN_PROGRESS': 50, 'RESOLVED': 100, 'REJECTED': 100}
                 progress_value = progress_map.get(status, 0)
                 
-                st.markdown(f"""
-                <div style="background: linear-gradient(135deg, #1a237e, #0d47a1); padding: 20px; border-radius: 15px; margin: 10px 0;">
-                    <h2 style="color: white; text-align: center;">{status_icon} Status: {status_text}</h2>
-                    <p style="color: white; text-align: center;">Tracking ID: {tracking_input}</p>
-                </div>
-                """, unsafe_allow_html=True)
+                # Status header - FIXED: Proper f-string without HTML in Python string
+                st.markdown(
+                    f'<div style="background: linear-gradient(135deg, #1a237e, #0d47a1); padding: 20px; border-radius: 15px; margin: 10px 0;">'
+                    f'<h2 style="color: white; text-align: center;">{status_icon} Status: {status_text}</h2>'
+                    f'<p style="color: white; text-align: center;">Tracking ID: {tracking_input}</p>'
+                    f'</div>',
+                    unsafe_allow_html=True
+                )
                 
                 st.progress(progress_value / 100, text="Complaint Progress")
                 
@@ -750,45 +752,56 @@ elif portal == "🔍 Track Complaint":
                         with st.expander("View English Translation"):
                             st.write(complaint.get('translated_text'))
                 
-                # ============================================================
                 # FEEDBACK SECTION (Only when status is RESOLVED)
-                # ============================================================
+                              
                 if status == 'RESOLVED':
                     st.markdown("---")
                     st.subheader("📝 Share Your Feedback")
                     st.write("How satisfied are you with the resolution of your complaint?")
                     
-                    feedback_key = f"feedback_given_{tracking_input}"
-                    if feedback_key not in st.session_state:
-                        st.session_state[feedback_key] = False
+                    # Check if feedback already given in database
+                    existing_feedback = db.get_feedback_by_tracking_id(tracking_input)
                     
-                    if not st.session_state[feedback_key]:
+                    # Check session state for submitted flag
+                    feedback_key = f"feedback_done_{tracking_input}"
+                    
+                    if existing_feedback and len(existing_feedback) > 0:
+                        # Show existing feedback
+                        st.success("✅ Thank you for your feedback! Your response has been recorded.")
+                        with st.expander("View your submitted feedback"):
+                            fb = existing_feedback[0]
+                            st.write(f"**Rating:** {fb.get('rating')}")
+                            st.write(f"**Feedback:** {fb.get('feedback_text')}")
+                            st.write(f"**Submitted on:** {fb.get('created_at')}")
+                    
+                    elif st.session_state.get(feedback_key, False):
+                        # Just submitted, show success
+                        st.success("✅ Thank you for your feedback! Your response has been recorded.")
+                        st.balloons()
+                    
+                    else:
+                        # Show feedback form
                         rating = st.select_slider(
                             "Rate your satisfaction",
                             options=["Very Poor", "Poor", "Average", "Good", "Excellent"],
-                            value="Good"
+                            value="Good",
+                            key=f"rating_{tracking_input}"
                         )
                         
-                        feedback_text = st.text_area("Your feedback (optional)", placeholder="Share your experience...")
+                        feedback_text = st.text_area(
+                            "Your feedback (optional)", 
+                            placeholder="Share your experience...",
+                            key=f"fb_text_{tracking_input}"
+                        )
                         
-                        if st.button("Submit Feedback", type="primary"):
-                            # Save feedback
-                            feedback_data = {
-                                'tracking_id': tracking_input,
-                                'rating': rating,
-                                'feedback': feedback_text,
-                                'timestamp': datetime.now().strftime('%Y-%m-%d %H:%M:%S')
-                            }
-                            
-                            if 'feedbacks' not in st.session_state:
-                                st.session_state.feedbacks = []
-                            st.session_state.feedbacks.append(feedback_data)
-                            
-                            st.session_state[feedback_key] = True
-                            st.success("✅ Thank you for your feedback!")
-                            st.rerun()
-                    else:
-                        st.info("✅ Thank you for your feedback! Your response has been recorded.")
+                        if st.button("Submit Feedback", type="primary", key=f"submit_{tracking_input}"):
+                            result = db.save_feedback(tracking_input, rating, feedback_text if feedback_text else "No comment")
+                            if result:
+                                st.session_state[feedback_key] = True
+                                st.success("✅ Thank you for your feedback!")
+                                st.balloons()
+                            else:
+                                st.error("❌ Failed to save feedback. Please try again.")
                 
                 # Next steps
                 st.markdown("---")
@@ -842,8 +855,8 @@ elif portal == "📊 Analytics":
                     score_ranges["Critical (0-39)"] += 1
             
             # Create bar chart
-            import plotly.express as px
-            import pandas as pd
+            import plotly.express as px # pyright: ignore[reportMissingImports]
+            import pandas as pd # pyright: ignore[reportMissingModuleSource]
             
             df_scores = pd.DataFrame({
                 'Range': list(score_ranges.keys()),
@@ -910,200 +923,210 @@ elif portal == "📊 Analytics":
     # ============================================================
     # TAB 3: Citizen Complaints (Officer Management)
     # ============================================================
+         
+        # ============================================================
+    # TAB 3: Citizen Complaints (Officer Management) - FIXED
+    # ============================================================
     with tab3:
         st.subheader("📱 Citizen Complaints Management")
         st.write("Track, update status, and manage citizen complaints.")
         
-        # ============================================================
-        # SECTION A: Search by Tracking ID
-        # ============================================================
-        with st.expander("🔍 Search Complaint by Tracking ID", expanded=False):
-            col1, col2 = st.columns([3, 1])
-            with col1:
-                search_tracking = st.text_input("Enter Tracking ID", placeholder="e.g., GAIA-20250409-ABC123", key="search_tracking")
-            with col2:
-                search_button = st.button("🔍 Search", key="search_btn", use_container_width=True)
-            
-            if search_button and search_tracking:
-                complaint = db.get_complaint_by_tracking_id(search_tracking.upper())
-                if complaint:
-                    st.session_state.selected_complaint = complaint
-                    st.success(f"✅ Complaint found!")
-                else:
-                    st.error(f"No complaint found with Tracking ID: {search_tracking}")
+        # Get all complaints
+        all_complaints = db.get_complaints(100)
         
-        # ============================================================
-        # SECTION B: Update Complaint Status
-        # ============================================================
-        if 'selected_complaint' in st.session_state:
-            complaint = st.session_state.selected_complaint
+        if all_complaints:
+            # Create dropdown options
+            complaint_options = ["-- Select a Complaint --"]
+            complaint_map = {}
             
-            st.markdown("---")
-            st.subheader(f"📋 Update Status - {complaint.get('tracking_id')}")
+            for complaint in all_complaints:
+                tracking_id = complaint.get('tracking_id', 'Unknown')
+                status = complaint.get('status', 'PENDING')
+                complaint_type = complaint.get('complaint_type', 'unknown').replace('_', ' ').title()
+                location = complaint.get('location', 'N/A')[:30]
+                
+                display_text = f"{tracking_id} - {complaint_type} - {status} - {location}"
+                complaint_options.append(display_text)
+                complaint_map[display_text] = complaint
             
-            col1, col2 = st.columns(2)
+            selected_option = st.selectbox(
+                "Select Complaint to View/Update",
+                options=complaint_options,
+                index=0
+            )
+            
+            # Statistics
+            col1, col2, col3, col4 = st.columns(4)
             with col1:
-                st.write(f"**Complaint Type:** {complaint.get('complaint_type', 'Unknown').replace('_', ' ').title()}")
-                st.write(f"**Location:** {complaint.get('location', 'Not provided')}")
-                st.write(f"**Current Status:** {complaint.get('status', 'PENDING')}")
-                st.write(f"**Submitted On:** {complaint.get('created_at', 'Unknown')}")
-            
+                pending_count = sum(1 for c in all_complaints if c.get('status') == 'PENDING')
+                st.metric("📋 Pending", pending_count)
             with col2:
-                st.write(f"**Language:** {complaint.get('language_code', 'en').upper()}")
-                if complaint.get('original_text'):
-                    with st.expander("View Original Complaint"):
-                        st.write(complaint.get('original_text'))
-                if complaint.get('translated_text'):
-                    with st.expander("View English Translation"):
-                        st.write(complaint.get('translated_text'))
-            
-            # Status Update Form
-            st.markdown("---")
-            st.subheader("📌 Update Status")
-            
-            col1, col2, col3 = st.columns(3)
-            with col1:
-                new_status = st.selectbox(
-                    "Select New Status",
-                    ["PENDING", "IN_PROGRESS", "RESOLVED", "REJECTED"],
-                    index=["PENDING", "IN_PROGRESS", "RESOLVED", "REJECTED"].index(complaint.get('status', 'PENDING'))
-                )
-            
-            with col2:
-                officer_name = st.text_input("Officer Name", placeholder="e.g., Inspector Kumar", key="officer_name")
-            
+                progress_count = sum(1 for c in all_complaints if c.get('status') == 'IN_PROGRESS')
+                st.metric("🔍 In Progress", progress_count)
             with col3:
-                inspection_date = st.date_input("Inspection Date", value=None, key="inspection_date")
+                resolved_count = sum(1 for c in all_complaints if c.get('status') == 'RESOLVED')
+                st.metric("✅ Resolved", resolved_count)
+            with col4:
+                st.metric("📊 Total", len(all_complaints))
             
-            if st.button("✅ Update Status", type="primary", key="update_status_btn"):
-                result = db.update_complaint_status(
-                    complaint.get('tracking_id'),
-                    new_status,
-                    officer_name if officer_name else None,
-                    str(inspection_date) if inspection_date else None
-                )
+            # ============================================================
+            # Selected Complaint Details
+            # ============================================================
+            if selected_option != "-- Select a Complaint --":
+                complaint = complaint_map[selected_option]
+                tracking_id = complaint.get('tracking_id')
                 
-                if result:
-                    st.success(f"✅ Complaint status updated to {new_status}!")
-                    # Refresh the complaint data
-                    updated_complaint = db.get_complaint_by_tracking_id(complaint.get('tracking_id'))
-                    st.session_state.selected_complaint = updated_complaint
-                    st.rerun()
-                else:
-                    st.error("❌ Failed to update status")
-        
-        # ============================================================
-        # SECTION C: All Complaints List
-        # ============================================================
-        st.markdown("---")
-        st.subheader("📋 All Citizen Complaints")
-        
-        # Filters
-        col1, col2 = st.columns(2)
-        with col1:
-            status_filter = st.selectbox("Filter by Status", ["All", "PENDING", "IN_PROGRESS", "RESOLVED", "REJECTED"], key="status_filter")
-        with col2:
-            type_filter = st.selectbox("Filter by Type", ["All", "water_pollution", "air_pollution", "waste_dumping", "noise_pollution"], key="type_filter")
-        
-        # Get complaints with filters
-        complaints = db.get_complaints(50)
-        
-        if complaints:
-            # Apply filters
-            filtered_complaints = complaints
-            if status_filter != "All":
-                filtered_complaints = [c for c in filtered_complaints if c.get('status') == status_filter]
-            if type_filter != "All":
-                filtered_complaints = [c for c in filtered_complaints if c.get('complaint_type') == type_filter]
-            
-            # Display complaints in a table
-            for complaint in filtered_complaints:
-                status_icon = {
-                    'PENDING': '🟡',
-                    'IN_PROGRESS': '🔵',
-                    'RESOLVED': '🟢',
-                    'REJECTED': '🔴'
-                }.get(complaint.get('status'), '⚪')
+                st.markdown("---")
+                st.subheader(f"📋 Complaint Details - {tracking_id}")
                 
-                with st.container():
-                    col1, col2, col3, col4, col5 = st.columns([2, 2, 2, 2, 1])
-                    with col1:
-                        st.write(f"{status_icon} **{complaint.get('tracking_id')}**")
-                    with col2:
-                        st.write(complaint.get('complaint_type', 'Unknown').replace('_', ' ').title())
-                    with col3:
-                        st.write(complaint.get('location', 'N/A')[:30])
-                    with col4:
-                        st.write(complaint.get('status', 'PENDING'))
-                    with col5:
-                        if st.button("View", key=f"view_{complaint.get('tracking_id')}"):
-                            st.session_state.selected_complaint = complaint
-                            st.rerun()
-                    st.divider()
-        else:
-            st.info("No complaints found")
-        
-        # ============================================================
-        # SECTION D: Citizen Feedback View
-        # ============================================================
-        st.markdown("---")
-        st.subheader("📝 Citizen Feedback")
-        st.write("Feedback received from citizens after complaint resolution")
-        
-        if 'feedbacks' in st.session_state and st.session_state.feedbacks:
-            for fb in st.session_state.feedbacks:
-                with st.container():
-                    col1, col2 = st.columns([1, 3])
-                    with col1:
-                        st.write(f"**{fb['tracking_id']}**")
-                    with col2:
-                        st.write(f"⭐ **Rating:** {fb['rating']}")
-                    st.write(f"**Feedback:** {fb['feedback']}")
-                    st.write(f"**Date:** {fb['timestamp']}")
-                    st.divider()
-        else:
-            st.info("No feedback received yet")
-        
-        # ============================================================
-        # SECTION E: Delete Complaint (Officer Only)
-        # ============================================================
-        st.markdown("---")
-        st.subheader("🗑️ Delete Complaint (Officer Only)")
-        st.warning("⚠️ This action is permanent and cannot be undone! Only use this for completed cases.")
-        
-        col1, col2 = st.columns([3, 1])
-        with col1:
-            delete_tracking_id = st.text_input("Enter Tracking ID to Delete", placeholder="GAIA-YYYYMMDD-XXXXXX", key="delete_tracking")
-        with col2:
-            confirm_delete = st.checkbox("Confirm Deletion", key="confirm_delete")
-        
-        if st.button("🗑️ Permanently Delete Complaint", type="secondary", key="delete_btn"):
-            if not delete_tracking_id:
-                st.error("❌ Please enter Tracking ID")
-            elif not confirm_delete:
-                st.error("❌ Please confirm deletion by checking the box")
-            else:
-                # Delete from database
-                try:
-                    import sqlite3
-                    conn = sqlite3.connect("data/gaia.db")
-                    cursor = conn.cursor()
-                    cursor.execute("DELETE FROM complaints WHERE tracking_id = ?", (delete_tracking_id.upper(),))
-                    conn.commit()
-                    rows_deleted = cursor.rowcount
-                    conn.close()
-                    
-                    if rows_deleted > 0:
-                        st.success(f"✅ Complaint {delete_tracking_id.upper()} has been permanently deleted!")
-                        # Clear selected complaint if it was the deleted one
-                        if 'selected_complaint' in st.session_state and st.session_state.selected_complaint.get('tracking_id') == delete_tracking_id.upper():
-                            del st.session_state.selected_complaint
+                col1, col2 = st.columns(2)
+                with col1:
+                    st.write(f"**📍 Type:** {complaint.get('complaint_type', 'Unknown').replace('_', ' ').title()}")
+                    st.write(f"**📍 Location:** {complaint.get('location', 'Not provided')}")
+                    st.write(f"**📅 Submitted:** {complaint.get('created_at', 'Unknown')}")
+                    st.write(f"**🔄 Status:** {complaint.get('status', 'PENDING')}")
+                
+                with col2:
+                    st.write(f"**🌐 Language:** {complaint.get('language_code', 'en').upper()}")
+                    if complaint.get('officer_assigned'):
+                        st.write(f"**👮 Officer:** {complaint.get('officer_assigned')}")
+                    if complaint.get('inspection_date'):
+                        st.write(f"**📆 Inspection:** {complaint.get('inspection_date')}")
+                
+                if complaint.get('original_text'):
+                    with st.expander("📝 View Original Complaint"):
+                        st.write(complaint.get('original_text'))
+                
+                if complaint.get('translated_text') and complaint.get('translated_text') != complaint.get('original_text'):
+                    with st.expander("🇬🇧 View English Translation"):
+                        st.write(complaint.get('translated_text'))
+                
+                # ============================================================
+                # Update Status
+                # ============================================================
+                st.markdown("---")
+                st.subheader("📌 Update Complaint Status")
+                
+                col1, col2, col3 = st.columns(3)
+                with col1:
+                    new_status = st.selectbox(
+                        "New Status",
+                        ["PENDING", "IN_PROGRESS", "RESOLVED", "REJECTED"],
+                        index=["PENDING", "IN_PROGRESS", "RESOLVED", "REJECTED"].index(complaint.get('status', 'PENDING'))
+                    )
+                with col2:
+                    officer_name = st.text_input("Officer Name", value=complaint.get('officer_assigned', ''))
+                with col3:
+                    inspection_date = st.date_input("Inspection Date", value=None)
+                
+                if st.button("✅ Update Status", type="primary"):
+                    result = db.update_complaint_status(
+                        tracking_id, new_status,
+                        officer_name if officer_name else None,
+                        str(inspection_date) if inspection_date else None
+                    )
+                    if result:
+                        st.success(f"✅ Status updated to {new_status}!")
                         st.rerun()
                     else:
-                        st.error(f"❌ No complaint found with Tracking ID: {delete_tracking_id}")
-                except Exception as e:
-                    st.error(f"Error deleting complaint: {e}")
-    
+                        st.error("❌ Failed to update status")
+                
+                # ============================================================
+                # FEEDBACK DISPLAY - FIXED
+                # ============================================================
+                st.markdown("---")
+                st.subheader("📝 Citizen Feedback")
+                
+                # Get feedback for this complaint
+                feedback_list = db.get_feedback_by_tracking_id(tracking_id)
+                
+                if feedback_list and len(feedback_list) > 0:
+                    for fb in feedback_list:
+                        st.write(f"**⭐ Rating:** {fb.get('rating')}")
+                        st.write(f"**💬 Feedback:** {fb.get('feedback_text')}")
+                        st.write(f"**📅 Date:** {fb.get('created_at')}")
+                        
+                        if fb.get('is_read') == 0:
+                            if st.button("📖 Mark as Read", key=f"mark_read_{fb.get('id')}"):
+                                db.mark_feedback_as_read(fb.get('id'))
+                                st.success("Marked as read!")
+                                st.rerun()
+                            st.warning("🆕 New Feedback")
+                        else:
+                            st.caption("✅ Read by officer")
+                        st.divider()
+                else:
+                    st.info("No feedback received for this complaint yet. Feedback appears after complaint is resolved.")
+                
+                # ============================================================
+                # Delete Complaint
+                # ============================================================
+                st.markdown("---")
+                st.subheader("🗑️ Delete Complaint")
+                st.warning("⚠️ This action is permanent and cannot be undone!")
+                
+                col1, col2 = st.columns([1, 1])
+                with col1:
+                    confirm_delete = st.checkbox("Confirm Deletion", key=f"confirm_delete_{tracking_id}")
+                with col2:
+                    if st.button("🗑️ Delete This Complaint", type="secondary"):
+                        if confirm_delete:
+                            try:
+                                import sqlite3
+                                conn = sqlite3.connect("data/gaia.db")
+                                cursor = conn.cursor()
+                                cursor.execute("DELETE FROM complaints WHERE tracking_id = ?", (tracking_id,))
+                                conn.commit()
+                                if cursor.rowcount > 0:
+                                    st.success(f"✅ Complaint {tracking_id} deleted!")
+                                    st.rerun()
+                                else:
+                                    st.error("Failed to delete")
+                                conn.close()
+                            except Exception as e:
+                                st.error(f"Error: {e}")
+                        else:
+                            st.error("❌ Please confirm deletion")
+            
+            # ============================================================
+            # All Feedback Overview
+            # ============================================================
+            st.markdown("---")
+            st.subheader("📊 All Citizen Feedback Overview")
+            
+            all_feedback = db.get_all_feedback()
+            
+            if all_feedback and len(all_feedback) > 0:
+                col1, col2, col3 = st.columns(3)
+                with col1:
+                    st.metric("📝 Total Feedback", len(all_feedback))
+                with col2:
+                    unread_count = sum(1 for fb in all_feedback if fb.get('is_read') == 0)
+                    st.metric("🆕 Unread", unread_count)
+                with col3:
+                    rating_map = {"Very Poor": 1, "Poor": 2, "Average": 3, "Good": 4, "Excellent": 5}
+                    ratings = [rating_map.get(fb.get('rating'), 3) for fb in all_feedback if fb.get('rating')]
+                    avg_rating = sum(ratings) / len(ratings) if ratings else 0
+                    st.metric("⭐ Avg Rating", f"{avg_rating:.1f}/5")
+                
+                for fb in all_feedback[:10]:
+                    col1, col2, col3 = st.columns([2, 3, 1])
+                    with col1:
+                        st.write(f"**{fb.get('tracking_id')}**")
+                    with col2:
+                        st.write(f"⭐ {fb.get('rating')} - {fb.get('feedback_text')[:100]}...")
+                    with col3:
+                        if fb.get('is_read') == 0:
+                            st.warning("🆕 New")
+                        else:
+                            st.caption("📖 Read")
+                    st.divider()
+            else:
+                st.info("No feedback received yet.")
+        
+        else:
+            st.info("No complaints found. Submit a complaint first.")
+            
     # ============================================================
     # TAB 4: Notifications Sent
     # ============================================================
