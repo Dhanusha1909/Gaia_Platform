@@ -80,7 +80,6 @@ with st.sidebar:
     st.image("https://img.icons8.com/color/96/000000/earth-planet.png", width=80)
     st.header("GAIA Portal")
     
-   # In sidebar, update the portal selection:
     portal = st.radio(
         "Select Portal",
         ["🏭 Officer Dashboard", "📱 Citizen Report", "🔍 Track Complaint", "📊 Analytics", "🌱 Green AI Metrics"]
@@ -130,7 +129,7 @@ if portal == "🏭 Officer Dashboard":
                     with st.spinner("Reading file..."):
                         if report_file.type == "application/pdf":
                             try:
-                                import pdfplumber # pyright: ignore[reportMissingImports]
+                                import pdfplumber
                                 with pdfplumber.open(report_file) as pdf:
                                     text = "".join([page.extract_text() or "" for page in pdf.pages])
                             except Exception as e:
@@ -312,13 +311,12 @@ elif portal == "📱 Citizen Report":
         help="Choose either voice or text to describe the issue"
     )
     
-    # Variables to store complaint data
+    # Variables to store complaint data - Initialize with defaults
     complaint_text_original = ""
     complaint_text_translated = ""
     detected_lang = "en"
     lang_name = "English"
-    voice_result = None
-    text_complaint_data = None
+    complaint_type = "unknown"
     
     # ============================================================
     # VOICE INPUT SECTION
@@ -370,13 +368,14 @@ elif portal == "📱 Citizen Report":
                     col_d1, col_d2 = st.columns(2)
                     with col_d1:
                         if details.get('complaint_type'):
+                            complaint_type = details.get('complaint_type')
                             type_icons = {
                                 'water_pollution': '💧 Water Pollution',
                                 'air_pollution': '💨 Air Pollution',
                                 'waste_dumping': '🗑️ Waste Dumping',
                                 'noise_pollution': '🔊 Noise Pollution'
                             }
-                            st.info(f"{type_icons.get(details['complaint_type'], '📋 ' + details['complaint_type'])}")
+                            st.info(f"{type_icons.get(complaint_type, '📋 ' + complaint_type)}")
                     
                     with col_d2:
                         if details.get('urgency') == 'HIGH':
@@ -466,6 +465,7 @@ elif portal == "📱 Citizen Report":
                     
                     # Extract complaint details
                     details = voice_processor._extract_complaint_details(translated_text)
+                    complaint_type = details.get('complaint_type', 'unknown')
                     
                     # Store in session
                     text_complaint_data = {
@@ -477,17 +477,19 @@ elif portal == "📱 Citizen Report":
                     }
                     st.session_state.text_complaint_data = text_complaint_data
                     
+                    # Set variables for submission
+                    complaint_text_original = text_complaint
+                    complaint_text_translated = translated_text
+                    
                     # Display results
                     st.success(f"✅ Translation complete!")
                     st.write(f"**🌐 Detected Language:** {lang_name}")
                     
                     with st.expander("📝 Original Complaint (Your Language)", expanded=True):
                         st.write(text_complaint)
-                        complaint_text_original = text_complaint
                     
                     with st.expander("🇬🇧 English Translation (For Officers)", expanded=True):
                         st.success(translated_text)
-                        complaint_text_translated = translated_text
                     
                     col_d1, col_d2 = st.columns(2)
                     with col_d1:
@@ -520,6 +522,7 @@ elif portal == "📱 Citizen Report":
             complaint_text_translated = text_complaint_data['translated']
             detected_lang = text_complaint_data['language_code']
             lang_name = text_complaint_data['language_name']
+            complaint_type = text_complaint_data.get('complaint_details', {}).get('complaint_type', 'unknown')
             
             st.success(f"✅ Previously translated from {lang_name}")
             with st.expander("📝 Original Complaint", expanded=False):
@@ -563,7 +566,6 @@ elif portal == "📱 Citizen Report":
         # Validation
         has_voice = 'voice_complaint' in st.session_state and st.session_state.voice_complaint
         has_text = complaint_text_original and complaint_text_original.strip()
-        has_photo = photo is not None
         
         if not has_voice and not has_text:
             st.error("❌ Please either record a voice complaint OR type your complaint")
@@ -584,20 +586,27 @@ elif portal == "📱 Citizen Report":
                 if has_voice:
                     v_result = st.session_state.voice_complaint
                     complaint_type = v_result.get('complaint_details', {}).get('complaint_type', 'unknown')
-                    complaint_details = v_result.get('translated_transcript', v_result.get('transcript', ''))[:200]
                     original_text = v_result.get('original_transcript', v_result.get('transcript', ''))
                     translated_text = v_result.get('translated_transcript', '')
                     language_code = v_result.get('language_code', 'en')
                 else:
-                    t_data = st.session_state.text_complaint_data if 'text_complaint_data' in st.session_state else text_complaint_data
-                    complaint_type = t_data.get('complaint_details', {}).get('complaint_type', 'unknown') if t_data else 'unknown'
-                    complaint_details = complaint_text_translated[:200] if complaint_text_translated else complaint_text_original[:200]
                     original_text = complaint_text_original
                     translated_text = complaint_text_translated
                     language_code = detected_lang
                 
-                # Save to database
-                db.save_complaint(tracking_id, complaint_type, location, original_text, translated_text, language_code)
+                # Debug print
+                print(f"🔍 Saving complaint - Tracking ID: {tracking_id}")
+                print(f"   Type: {complaint_type}, Location: {location}")
+                print(f"   Original: {original_text[:100]}...")
+                print(f"   Translated: {translated_text[:100]}...")
+                
+                # Save to database (ONLY ONCE)
+                result = db.save_complaint(tracking_id, complaint_type, location, original_text, translated_text, language_code)
+                
+                if result:
+                    print(f"✅ Complaint saved successfully with ID: {result}")
+                else:
+                    print(f"❌ Failed to save complaint")
                 
                 # Generate acknowledgment
                 ack = notification_system.generate_citizen_acknowledgment(tracking_id)
@@ -642,7 +651,8 @@ elif portal == "📱 Citizen Report":
             # Tracking info
             st.write("---")
             st.write("**🔍 Track your complaint:**")
-            st.code(f"https://gaia.gov.in/track/{tracking_id}")
+            st.code(f"Tracking ID: {tracking_id}")
+            st.info("Go to 'Track Complaint' portal and enter this ID to check status")
             
             st.write("---")
             st.write("**⏳ What happens next:**")
@@ -665,11 +675,10 @@ elif portal == "📱 Citizen Report":
             # Reset button
             if st.button("📝 Report Another Issue"):
                 st.rerun()
+
 elif portal == "🔍 Track Complaint":
     st.header("🔍 Track Your Complaint")
     st.write("Enter your Tracking ID to check the status of your complaint.")
-    
-    st.info("📌 **What is Tracking ID?** You received a Tracking ID when you submitted your complaint. Example: `GAIA-20250407-ABC123`")
     
     col1, col2 = st.columns([2, 1])
     
@@ -678,201 +687,149 @@ elif portal == "🔍 Track Complaint":
             "Enter Tracking ID",
             placeholder="e.g., GAIA-20250407-ABC123",
             help="Enter the Tracking ID you received after submitting your complaint"
-        )
+        ).upper().strip()
     
     with col2:
         track_button = st.button("🔍 Track Complaint", type="primary", use_container_width=True)
     
     if track_button and tracking_input:
         with st.spinner("Fetching complaint details..."):
-            # Search for complaint in database
             complaint = db.get_complaint_by_tracking_id(tracking_input)
             
             if complaint:
-                # Display complaint details
                 st.success(f"✅ Complaint Found!")
                 
-                # Status card
+                # Status display
                 status = complaint.get('status', 'PENDING')
-                status_colors = {
-                    'PENDING': '🟡',
-                    'IN_PROGRESS': '🔵',
-                    'RESOLVED': '🟢',
-                    'REJECTED': '🔴'
+                status_icons = {
+                    'PENDING': ('🟡', 'Pending Review'),
+                    'IN_PROGRESS': ('🔵', 'Under Investigation'),
+                    'RESOLVED': ('🟢', 'Resolved'),
+                    'REJECTED': ('🔴', 'Rejected')
                 }
-                status_icon = status_colors.get(status, '⚪')
+                status_icon, status_text = status_icons.get(status, ('⚪', status))
                 
-                # Main status display
+                # Progress bar
+                progress_map = {'PENDING': 25, 'IN_PROGRESS': 50, 'RESOLVED': 100, 'REJECTED': 100}
+                progress_value = progress_map.get(status, 0)
+                
                 st.markdown(f"""
                 <div style="background: linear-gradient(135deg, #1a237e, #0d47a1); padding: 20px; border-radius: 15px; margin: 10px 0;">
-                    <h2 style="color: white; text-align: center;">{status_icon} Complaint Status: {status}</h2>
-                    <p style="color: white; text-align: center; font-size: 18px;">Tracking ID: {tracking_input}</p>
+                    <h2 style="color: white; text-align: center;">{status_icon} Status: {status_text}</h2>
+                    <p style="color: white; text-align: center;">Tracking ID: {tracking_input}</p>
                 </div>
                 """, unsafe_allow_html=True)
                 
-                # Complaint details in columns
-                col1, col2 = st.columns(2)
+                st.progress(progress_value / 100, text="Complaint Progress")
                 
+                # Status steps
+                col1, col2, col3, col4 = st.columns(4)
                 with col1:
-                    st.subheader("📋 Complaint Details")
+                    st.markdown("✅ **Submitted**" if progress_value >= 25 else "🟡 **Submitted**")
+                with col2:
+                    st.markdown("✅ **Under Review**" if progress_value >= 50 else "🟡 **Under Review**")
+                with col3:
+                    st.markdown("✅ **Action Taken**" if progress_value >= 75 else "🟡 **Action Taken**")
+                with col4:
+                    st.markdown("✅ **Completed**" if progress_value == 100 else "🟡 **Completed**")
+                
+                # Complaint details
+                col1, col2 = st.columns(2)
+                with col1:
                     st.write(f"**Complaint Type:** {complaint.get('complaint_type', 'Unknown').replace('_', ' ').title()}")
                     st.write(f"**Location:** {complaint.get('location', 'Not provided')}")
-                    st.write(f"**Submitted On:** {complaint.get('created_at', 'Unknown')}")
-                    st.write(f"**Last Updated:** {complaint.get('updated_at', complaint.get('created_at', 'Unknown'))}")
+                    st.write(f"**Submitted:** {complaint.get('created_at', 'Unknown')}")
+                    if complaint.get('officer_assigned'):
+                        st.write(f"**Officer:** {complaint.get('officer_assigned')}")
                 
                 with col2:
-                    st.subheader("📝 Your Complaint")
-                    original_text = complaint.get('original_text', '')
-                    if original_text:
-                        with st.expander("View Original Complaint", expanded=True):
-                            st.write(original_text)
-                    
-                    translated_text = complaint.get('translated_text', '')
-                    if translated_text and translated_text != original_text:
-                        with st.expander("🇬🇧 English Translation", expanded=False):
-                            st.write(translated_text)
+                    if complaint.get('original_text'):
+                        with st.expander("View Your Complaint"):
+                            st.write(complaint.get('original_text'))
+                    if complaint.get('translated_text') and complaint.get('translated_text') != complaint.get('original_text'):
+                        with st.expander("View English Translation"):
+                            st.write(complaint.get('translated_text'))
                 
-                # Timeline
-                st.subheader("📅 Complaint Timeline")
-                
-                timeline_data = []
-                
-                # Submission
-                submitted_date = complaint.get('created_at', '')
-                timeline_data.append({
-                    "status": "Submitted",
-                    "date": submitted_date,
-                    "description": "Complaint received by GAIA system",
-                    "icon": "✅"
-                })
-                
-                # AI Analysis
-                timeline_data.append({
-                    "status": "AI Analysis",
-                    "date": submitted_date,
-                    "description": f"AI analyzed complaint - Type: {complaint.get('complaint_type', 'Unknown')}",
-                    "icon": "🤖"
-                })
-                
-                # Officer Assignment
-                if status in ['IN_PROGRESS', 'RESOLVED']:
-                    timeline_data.append({
-                        "status": "Officer Assigned",
-                        "date": complaint.get('updated_at', ''),
-                        "description": f"Officer assigned for inspection",
-                        "icon": "👮"
-                    })
-                
-                # Inspection
+                # ============================================================
+                # FEEDBACK SECTION (Only when status is RESOLVED)
+                # ============================================================
                 if status == 'RESOLVED':
-                    timeline_data.append({
-                        "status": "Inspection Completed",
-                        "date": complaint.get('updated_at', ''),
-                        "description": "Site inspection completed",
-                        "icon": "🔍"
-                    })
-                    timeline_data.append({
-                        "status": "Action Taken",
-                        "date": complaint.get('updated_at', ''),
-                        "description": "Resolution action completed",
-                        "icon": "✅"
-                    })
-                
-                # Display timeline
-                for i, event in enumerate(timeline_data):
-                    col1, col2, col3 = st.columns([1, 3, 2])
-                    with col1:
-                        st.write(f"**{event['icon']}**")
-                    with col2:
-                        st.write(f"**{event['status']}**")
-                        st.caption(event['description'])
-                    with col3:
-                        st.write(event['date'])
+                    st.markdown("---")
+                    st.subheader("📝 Share Your Feedback")
+                    st.write("How satisfied are you with the resolution of your complaint?")
                     
-                    if i < len(timeline_data) - 1:
-                        st.markdown("↓")
+                    feedback_key = f"feedback_given_{tracking_input}"
+                    if feedback_key not in st.session_state:
+                        st.session_state[feedback_key] = False
+                    
+                    if not st.session_state[feedback_key]:
+                        rating = st.select_slider(
+                            "Rate your satisfaction",
+                            options=["Very Poor", "Poor", "Average", "Good", "Excellent"],
+                            value="Good"
+                        )
+                        
+                        feedback_text = st.text_area("Your feedback (optional)", placeholder="Share your experience...")
+                        
+                        if st.button("Submit Feedback", type="primary"):
+                            # Save feedback
+                            feedback_data = {
+                                'tracking_id': tracking_input,
+                                'rating': rating,
+                                'feedback': feedback_text,
+                                'timestamp': datetime.now().strftime('%Y-%m-%d %H:%M:%S')
+                            }
+                            
+                            if 'feedbacks' not in st.session_state:
+                                st.session_state.feedbacks = []
+                            st.session_state.feedbacks.append(feedback_data)
+                            
+                            st.session_state[feedback_key] = True
+                            st.success("✅ Thank you for your feedback!")
+                            st.rerun()
+                    else:
+                        st.info("✅ Thank you for your feedback! Your response has been recorded.")
                 
-                # Next steps based on status
-                st.subheader("📌 Next Steps")
-                
+                # Next steps
+                st.markdown("---")
                 if status == 'PENDING':
-                    st.info("""
-                    🔄 **Your complaint is pending review**
-                    
-                    - An officer will be assigned within 24 hours
-                    - You will receive an SMS/Email update
-                    - Check back tomorrow for status update
-                    """)
+                    st.info("🔄 Your complaint is pending review. An officer will be assigned within 24 hours.")
                 elif status == 'IN_PROGRESS':
-                    st.warning("""
-                    🔍 **Complaint under investigation**
-                    
-                    - An officer has been assigned to your case
-                    - Site inspection will be scheduled within 7 days
-                    - You will be notified of the inspection date
-                    """)
+                    st.warning("🔍 Your complaint is under investigation.")
                 elif status == 'RESOLVED':
-                    st.success("""
-                    ✅ **Complaint resolved**
-                    
-                    - Action has been taken based on your complaint
-                    - Thank you for helping protect the environment
-                    - A detailed report has been sent to your registered contact
-                    """)
-                
-                # Contact information
-                with st.expander("📞 Need Help? Contact Support"):
-                    st.write("""
-                    - **Email:** support@gaia.gov.in
-                    - **Helpline:** 1800-XXX-XXXX (24x7)
-                    - **WhatsApp:** +91-XXXXXXXXXX
-                    
-                    Please keep your Tracking ID ready when contacting support.
-                    """)
+                    st.success("✅ Your complaint has been resolved. Thank you for helping protect the environment!")
+                elif status == 'REJECTED':
+                    st.error("❌ Your complaint could not be verified. Please contact support for more information.")
                 
             else:
                 st.error(f"❌ No complaint found with Tracking ID: {tracking_input}")
-                st.info("""
-                **Please check:**
-                - Make sure you entered the correct Tracking ID
-                - Tracking ID format: `GAIA-YYYYMMDD-XXXXXX`
-                - Example: `GAIA-20250407-ABC123`
-                
-                If you lost your Tracking ID, please contact support.
-                """)
     
     elif track_button and not tracking_input:
         st.warning("⚠️ Please enter your Tracking ID")
-    
-    # Show recent complaints example (for demo)
-    with st.expander("📋 Sample Tracking IDs (For Demo)"):
-        st.write("Use these Tracking IDs to test the tracking feature:")
-        
-        # Get recent complaints from database
-        recent_complaints = db.get_complaints(5)
-        if recent_complaints:
-            for complaint in recent_complaints:
-                tracking_id = complaint.get('tracking_id') if isinstance(complaint, dict) else complaint[1] if len(complaint) > 1 else 'N/A'
-                status = complaint.get('status') if isinstance(complaint, dict) else complaint[4] if len(complaint) > 4 else 'PENDING'
-                st.code(f"Tracking ID: {tracking_id} - Status: {status}")
-        else:
-            st.code("No complaints in database yet. Submit a complaint first to test tracking.")
-            
+
 elif portal == "📊 Analytics":
-    st.header("📊 Sustainability Analytics")
+    st.header("📊 Sustainability Analytics - Officer Dashboard")
+    st.write("Manage and track citizen complaints, monitor fraud detection, and review feedback.")
     
-    col1, col2 = st.columns(2)
+    # Create tabs
+    tab1, tab2, tab3, tab4 = st.tabs(["📈 Reports by Score Range", "🚨 Fraud Detection Stats", "📱 Citizen Complaints", "📨 Notifications Sent"])
     
-    with col1:
+    # ============================================================
+    # TAB 1: Reports by Score Range
+    # ============================================================
+    with tab1:
         st.subheader("📈 Reports by Score Range")
-        reports = db.get_reports(50)
+        
+        reports = db.get_reports(100)
         if reports:
+            # Score distribution chart
             score_ranges = {
                 "Excellent (80-100)": 0,
                 "Good (60-79)": 0,
                 "Poor (40-59)": 0,
                 "Critical (0-39)": 0
             }
+            
             for report in reports:
                 score = report.get('gaia_score', 0)
                 if score >= 80:
@@ -884,46 +841,286 @@ elif portal == "📊 Analytics":
                 else:
                     score_ranges["Critical (0-39)"] += 1
             
-            for range_name, count in score_ranges.items():
-                st.progress(count / max(len(reports), 1), text=f"{range_name}: {count} reports")
+            # Create bar chart
+            import plotly.express as px
+            import pandas as pd
+            
+            df_scores = pd.DataFrame({
+                'Range': list(score_ranges.keys()),
+                'Count': list(score_ranges.values())
+            })
+            
+            fig = px.bar(df_scores, x='Range', y='Count', title='Reports Distribution by Score',
+                        color='Count', color_continuous_scale='Viridis')
+            st.plotly_chart(fig, use_container_width=True)
+            
+            # Display metrics
+            col1, col2, col3, col4 = st.columns(4)
+            with col1:
+                st.metric("Excellent", score_ranges["Excellent (80-100)"])
+            with col2:
+                st.metric("Good", score_ranges["Good (60-79)"])
+            with col3:
+                st.metric("Poor", score_ranges["Poor (40-59)"])
+            with col4:
+                st.metric("Critical", score_ranges["Critical (0-39)"])
+            
+            with st.expander("📋 Recent Reports Details"):
+                for report in reports[:10]:
+                    status_color = "🟢" if report.get('gaia_score', 0) >= 60 else "🔴"
+                    st.write(f"{status_color} **{report.get('factory_name', 'Unknown')}** - Score: {report.get('gaia_score', 0)} - {report.get('created_at', '')[:19]}")
         else:
             st.info("No reports analyzed yet")
     
-    with col2:
-        st.subheader("🚨 Fraud Detection Stats")
-        reports = db.get_reports(50)
+    # ============================================================
+    # TAB 2: Fraud Detection Stats
+    # ============================================================
+    with tab2:
+        st.subheader("🚨 Fraud Detection Statistics")
+        
+        reports = db.get_reports(100)
         if reports:
             fraud_count = sum(1 for r in reports if r.get('is_fake', False))
-            st.metric("Fake Reports Detected", fraud_count, f"{fraud_count/len(reports)*100:.0f}% of total")
-            st.metric("Authentic Reports", len(reports) - fraud_count)
-        else:
-            st.info("No fraud data available")
-    
-    st.divider()
-    
-    col1, col2 = st.columns(2)
-    
-    with col1:
-        st.subheader("📱 Citizen Complaints")
-        complaints = db.get_complaints(20)
-        if complaints:
-            complaint_types = {}
-            for complaint in complaints:
-                ctype = complaint.get('complaint_type', 'unknown')
-                complaint_types[ctype] = complaint_types.get(ctype, 0) + 1
+            authentic_count = len(reports) - fraud_count
             
-            for ctype, count in complaint_types.items():
-                st.write(f"• {ctype.replace('_', ' ').title()}: {count} reports")
+            col1, col2, col3 = st.columns(3)
+            with col1:
+                st.metric("Total Reports", len(reports))
+            with col2:
+                st.metric("Fake Reports Detected", fraud_count, delta=f"{fraud_count/len(reports)*100:.0f}% of total" if reports else "0%")
+            with col3:
+                st.metric("Authentic Reports", authentic_count)
+            
+            # Fraud pie chart
+            fig = px.pie(values=[fraud_count, authentic_count], names=['Fake Reports', 'Authentic Reports'],
+                        title='Fraud Detection Analysis', color_discrete_sequence=['red', 'green'])
+            st.plotly_chart(fig, use_container_width=True)
+            
+            # Fraud alerts list
+            st.subheader("🚨 Recent Fraud Alerts")
+            fraud_reports = [r for r in reports if r.get('is_fake', False)]
+            if fraud_reports:
+                for report in fraud_reports[:10]:
+                    st.warning(f"⚠️ **{report.get('factory_name', 'Unknown')}** - Fraud Score: {report.get('fraud_score', 0)*100:.0f}% - {report.get('created_at', '')[:19]}")
+            else:
+                st.success("✅ No fraud alerts detected")
         else:
-            st.info("No citizen complaints yet")
+            st.info("No reports analyzed yet")
     
-    with col2:
-        st.subheader("📨 Notifications Sent")
+    # ============================================================
+    # TAB 3: Citizen Complaints (Officer Management)
+    # ============================================================
+    with tab3:
+        st.subheader("📱 Citizen Complaints Management")
+        st.write("Track, update status, and manage citizen complaints.")
+        
+        # ============================================================
+        # SECTION A: Search by Tracking ID
+        # ============================================================
+        with st.expander("🔍 Search Complaint by Tracking ID", expanded=False):
+            col1, col2 = st.columns([3, 1])
+            with col1:
+                search_tracking = st.text_input("Enter Tracking ID", placeholder="e.g., GAIA-20250409-ABC123", key="search_tracking")
+            with col2:
+                search_button = st.button("🔍 Search", key="search_btn", use_container_width=True)
+            
+            if search_button and search_tracking:
+                complaint = db.get_complaint_by_tracking_id(search_tracking.upper())
+                if complaint:
+                    st.session_state.selected_complaint = complaint
+                    st.success(f"✅ Complaint found!")
+                else:
+                    st.error(f"No complaint found with Tracking ID: {search_tracking}")
+        
+        # ============================================================
+        # SECTION B: Update Complaint Status
+        # ============================================================
+        if 'selected_complaint' in st.session_state:
+            complaint = st.session_state.selected_complaint
+            
+            st.markdown("---")
+            st.subheader(f"📋 Update Status - {complaint.get('tracking_id')}")
+            
+            col1, col2 = st.columns(2)
+            with col1:
+                st.write(f"**Complaint Type:** {complaint.get('complaint_type', 'Unknown').replace('_', ' ').title()}")
+                st.write(f"**Location:** {complaint.get('location', 'Not provided')}")
+                st.write(f"**Current Status:** {complaint.get('status', 'PENDING')}")
+                st.write(f"**Submitted On:** {complaint.get('created_at', 'Unknown')}")
+            
+            with col2:
+                st.write(f"**Language:** {complaint.get('language_code', 'en').upper()}")
+                if complaint.get('original_text'):
+                    with st.expander("View Original Complaint"):
+                        st.write(complaint.get('original_text'))
+                if complaint.get('translated_text'):
+                    with st.expander("View English Translation"):
+                        st.write(complaint.get('translated_text'))
+            
+            # Status Update Form
+            st.markdown("---")
+            st.subheader("📌 Update Status")
+            
+            col1, col2, col3 = st.columns(3)
+            with col1:
+                new_status = st.selectbox(
+                    "Select New Status",
+                    ["PENDING", "IN_PROGRESS", "RESOLVED", "REJECTED"],
+                    index=["PENDING", "IN_PROGRESS", "RESOLVED", "REJECTED"].index(complaint.get('status', 'PENDING'))
+                )
+            
+            with col2:
+                officer_name = st.text_input("Officer Name", placeholder="e.g., Inspector Kumar", key="officer_name")
+            
+            with col3:
+                inspection_date = st.date_input("Inspection Date", value=None, key="inspection_date")
+            
+            if st.button("✅ Update Status", type="primary", key="update_status_btn"):
+                result = db.update_complaint_status(
+                    complaint.get('tracking_id'),
+                    new_status,
+                    officer_name if officer_name else None,
+                    str(inspection_date) if inspection_date else None
+                )
+                
+                if result:
+                    st.success(f"✅ Complaint status updated to {new_status}!")
+                    # Refresh the complaint data
+                    updated_complaint = db.get_complaint_by_tracking_id(complaint.get('tracking_id'))
+                    st.session_state.selected_complaint = updated_complaint
+                    st.rerun()
+                else:
+                    st.error("❌ Failed to update status")
+        
+        # ============================================================
+        # SECTION C: All Complaints List
+        # ============================================================
+        st.markdown("---")
+        st.subheader("📋 All Citizen Complaints")
+        
+        # Filters
+        col1, col2 = st.columns(2)
+        with col1:
+            status_filter = st.selectbox("Filter by Status", ["All", "PENDING", "IN_PROGRESS", "RESOLVED", "REJECTED"], key="status_filter")
+        with col2:
+            type_filter = st.selectbox("Filter by Type", ["All", "water_pollution", "air_pollution", "waste_dumping", "noise_pollution"], key="type_filter")
+        
+        # Get complaints with filters
+        complaints = db.get_complaints(50)
+        
+        if complaints:
+            # Apply filters
+            filtered_complaints = complaints
+            if status_filter != "All":
+                filtered_complaints = [c for c in filtered_complaints if c.get('status') == status_filter]
+            if type_filter != "All":
+                filtered_complaints = [c for c in filtered_complaints if c.get('complaint_type') == type_filter]
+            
+            # Display complaints in a table
+            for complaint in filtered_complaints:
+                status_icon = {
+                    'PENDING': '🟡',
+                    'IN_PROGRESS': '🔵',
+                    'RESOLVED': '🟢',
+                    'REJECTED': '🔴'
+                }.get(complaint.get('status'), '⚪')
+                
+                with st.container():
+                    col1, col2, col3, col4, col5 = st.columns([2, 2, 2, 2, 1])
+                    with col1:
+                        st.write(f"{status_icon} **{complaint.get('tracking_id')}**")
+                    with col2:
+                        st.write(complaint.get('complaint_type', 'Unknown').replace('_', ' ').title())
+                    with col3:
+                        st.write(complaint.get('location', 'N/A')[:30])
+                    with col4:
+                        st.write(complaint.get('status', 'PENDING'))
+                    with col5:
+                        if st.button("View", key=f"view_{complaint.get('tracking_id')}"):
+                            st.session_state.selected_complaint = complaint
+                            st.rerun()
+                    st.divider()
+        else:
+            st.info("No complaints found")
+        
+        # ============================================================
+        # SECTION D: Citizen Feedback View
+        # ============================================================
+        st.markdown("---")
+        st.subheader("📝 Citizen Feedback")
+        st.write("Feedback received from citizens after complaint resolution")
+        
+        if 'feedbacks' in st.session_state and st.session_state.feedbacks:
+            for fb in st.session_state.feedbacks:
+                with st.container():
+                    col1, col2 = st.columns([1, 3])
+                    with col1:
+                        st.write(f"**{fb['tracking_id']}**")
+                    with col2:
+                        st.write(f"⭐ **Rating:** {fb['rating']}")
+                    st.write(f"**Feedback:** {fb['feedback']}")
+                    st.write(f"**Date:** {fb['timestamp']}")
+                    st.divider()
+        else:
+            st.info("No feedback received yet")
+        
+        # ============================================================
+        # SECTION E: Delete Complaint (Officer Only)
+        # ============================================================
+        st.markdown("---")
+        st.subheader("🗑️ Delete Complaint (Officer Only)")
+        st.warning("⚠️ This action is permanent and cannot be undone! Only use this for completed cases.")
+        
+        col1, col2 = st.columns([3, 1])
+        with col1:
+            delete_tracking_id = st.text_input("Enter Tracking ID to Delete", placeholder="GAIA-YYYYMMDD-XXXXXX", key="delete_tracking")
+        with col2:
+            confirm_delete = st.checkbox("Confirm Deletion", key="confirm_delete")
+        
+        if st.button("🗑️ Permanently Delete Complaint", type="secondary", key="delete_btn"):
+            if not delete_tracking_id:
+                st.error("❌ Please enter Tracking ID")
+            elif not confirm_delete:
+                st.error("❌ Please confirm deletion by checking the box")
+            else:
+                # Delete from database
+                try:
+                    import sqlite3
+                    conn = sqlite3.connect("data/gaia.db")
+                    cursor = conn.cursor()
+                    cursor.execute("DELETE FROM complaints WHERE tracking_id = ?", (delete_tracking_id.upper(),))
+                    conn.commit()
+                    rows_deleted = cursor.rowcount
+                    conn.close()
+                    
+                    if rows_deleted > 0:
+                        st.success(f"✅ Complaint {delete_tracking_id.upper()} has been permanently deleted!")
+                        # Clear selected complaint if it was the deleted one
+                        if 'selected_complaint' in st.session_state and st.session_state.selected_complaint.get('tracking_id') == delete_tracking_id.upper():
+                            del st.session_state.selected_complaint
+                        st.rerun()
+                    else:
+                        st.error(f"❌ No complaint found with Tracking ID: {delete_tracking_id}")
+                except Exception as e:
+                    st.error(f"Error deleting complaint: {e}")
+    
+    # ============================================================
+    # TAB 4: Notifications Sent
+    # ============================================================
+    with tab4:
+        st.subheader("📨 Notifications Sent History")
+        
         history = notification_system.get_history()
         if history:
-            st.metric("Total Notifications", len(history))
-            for notif in history[-5:]:
-                st.write(f"• {notif.get('type', 'Unknown')} to {notif.get('to', 'Unknown')}")
+            st.metric("Total Notifications Sent", len(history))
+            
+            for notif in history[-20:]:
+                with st.container():
+                    st.write(f"**To:** {notif.get('to', 'Unknown')}")
+                    st.write(f"**Type:** {notif.get('type', 'Unknown')}")
+                    st.write(f"**Time:** {notif.get('timestamp', 'Unknown')}")
+                    st.write(f"**Subject:** {notif.get('subject', 'N/A')}")
+                    st.divider()
         else:
             st.info("No notifications sent yet")
 
