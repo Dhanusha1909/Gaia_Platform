@@ -405,6 +405,21 @@ class DatabaseManager:
         except Exception as e:
             print(f"Error deleting read feedback: {e}")
             return 0
+    def delete_report(self, report_id):
+        try:
+            import sqlite3
+            conn = sqlite3.connect("data/gaia.db")
+            cursor = conn.cursor()
 
+            cursor.execute("DELETE FROM reports WHERE id = ?", (report_id,))
+            conn.commit()
+
+            success = cursor.rowcount > 0
+            conn.close()
+            return success
+
+        except Exception as e:
+            print(f"Error deleting report: {e}")
+            return False
 # Create instance
 db = DatabaseManager()

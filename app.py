@@ -277,13 +277,30 @@ if portal == "🏭 Officer Dashboard":
     
     with tab2:
         st.subheader("🚨 Fraud Alerts")
-        st.info("Reports flagged for fraud will appear here")
         reports = db.get_reports(10)
+
         if reports:
             fraud_alerts = [r for r in reports if r.get('is_fake', False)]
+
             if fraud_alerts:
                 for report in fraud_alerts:
-                    st.warning(f"⚠️ **{report.get('factory_name', 'Unknown')}** - Fraud Score: {report.get('fraud_score', 0)*100:.0f}%")
+                    col1, col2 = st.columns([4, 1])
+
+                    with col1:
+                        st.warning(
+                            f"⚠️ **{report.get('factory_name', 'Unknown')}** "
+                            f"- Fraud Score: {report.get('fraud_score', 0)*100:.0f}%"
+                        )
+
+                    with col2:
+                        if st.button("🗑️ Delete", key=f"delete_{report.get('id')}"):
+                            success = db.delete_report(report.get('id'))
+
+                            if success:
+                                st.success("✅ Report deleted!")
+                                st.rerun()
+                            else:
+                                st.error("❌ Failed to delete report")
             else:
                 st.success("✅ No fraud alerts. All reports appear authentic.")
         else:
