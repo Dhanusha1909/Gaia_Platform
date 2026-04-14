@@ -1,4 +1,3 @@
-# modules/fraud_detector.py
 import re
 import random
 from datetime import datetime
@@ -27,10 +26,6 @@ class FraudDetector:
             r'\bplease note that\b',
             r'\bit is important to note\b',
             r'\bin conclusion\b',
-            r'\bfurthermore\b',
-            r'\badditionally\b',
-            r'\bhowever\b',
-            r'\btherefore\b',
             r'\bhere are some\b',
             r'\bhere is a\b',
             r'\blet me provide\b'
@@ -146,7 +141,7 @@ class FraudDetector:
             if re.search(pattern, text_lower):
                 ai_matches.append(pattern)
         
-        if len(ai_matches) > 2:
+        if len(ai_matches) > 4:
             suspicious.append(f"⚠️ AI-generated language patterns detected ({len(ai_matches)} matches)")
         
         # Check for generic phrases
@@ -218,41 +213,41 @@ class FraudDetector:
         # 1. Consistency checks
         consistency_flags = self.check_consistency(metrics)
         if consistency_flags:
-            fraud_score += 0.35
+            fraud_score += 0.15
             reasons.extend(consistency_flags)
         
         # 2. Industry benchmark checks
         if industry:
             benchmark_flags = self.check_industry_benchmarks(metrics, industry)
             if benchmark_flags:
-                fraud_score += 0.25
+                fraud_score += 0.15
                 reasons.extend(benchmark_flags)
         
         # 3. Rounding pattern detection
         if text:
             rounding_flags = self.detect_rounding_patterns(text)
             if rounding_flags:
-                fraud_score += 0.15
+                fraud_score += 0.10
                 reasons.extend(rounding_flags)
         
         # 4. Template and AI pattern detection
         if text:
             template_flags = self.detect_template_patterns(text)
             if template_flags:
-                fraud_score += 0.30
+                fraud_score += 0.15
                 reasons.extend(template_flags)
         
         # 5. Unit inconsistency detection
         if text:
             unit_flags = self.detect_inconsistent_units(text, metrics)
             if unit_flags:
-                fraud_score += 0.10
+                fraud_score += 0.05
                 reasons.extend(unit_flags)
         
         # 6. Anomalous combination detection
         anomaly_flags = self.detect_anomalous_combinations(metrics)
         if anomaly_flags:
-            fraud_score += 0.15
+            fraud_score += 0.10
             reasons.extend(anomaly_flags)
         
         # 7. Missing data penalty
@@ -289,16 +284,16 @@ class FraudDetector:
                 reasons.append("🚨 Strong AI-generated content pattern detected")
 
         # Apply override if hard fraud detected
-        if hard_flags >= 1:
+        if hard_flags >= 2:
             fraud_score = max(fraud_score, 0.6)
         
         fraud_score = min(fraud_score, 1.0)
         
         # Determine severity
-        if fraud_score > 0.7:
+        if fraud_score > 0.8:
             severity = "HIGH"
             severity_icon = "🔴"
-        elif fraud_score > 0.4:
+        elif fraud_score > 0.5:
             severity = "MEDIUM"
             severity_icon = "🟡"
         else:

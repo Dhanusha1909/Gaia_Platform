@@ -68,6 +68,60 @@ st.markdown("""
         border-radius: 10px;
         margin: 10px 0;
     }
+        /* Analysis Results heading */
+    h2, h3, h4 {
+        color: white !important;
+    }
+
+    /* Specific section fix (if inside a container/card) */
+    .analysis-results {
+        color: white !important;
+    }
+
+    /* Fix text inside metric cards */
+    [data-testid="stMetric"] {
+        color: white !important;
+    }
+
+    /* Optional: make all text white in dark theme */
+    body {
+        color: white;
+    }
+        /* Metric card container */
+    .metric-card {
+        background-color: #1e1e2f;  /* dark background */
+        padding: 20px;
+        border-radius: 12px;
+        color: white !important;
+    }
+
+    /* Headings inside cards */
+    .metric-card h3 {
+        color: white !important;
+    }
+
+    /* Streamlit metric label + value */
+    [data-testid="stMetricLabel"] {
+        color: #cccccc !important;
+    }
+
+    [data-testid="stMetricValue"] {
+        color: white !important;
+        font-weight: bold;
+    }
+
+    /* Subheaders like Fraud Analysis */
+    h2, h3 {
+        color: white !important;
+    }
+
+    /* General text inside cards */
+    .metric-card p,
+    .metric-card div,
+    .metric-card span {
+        color: white !important;
+    }
+
     </style>
 """, unsafe_allow_html=True)
 
@@ -79,12 +133,12 @@ st.caption("Green AI-Powered Environmental Compliance & Citizen Empowerment")
 with st.sidebar:
     st.image("https://img.icons8.com/color/96/000000/earth-planet.png", width=80)
     st.header("GAIA Portal")
-    
+   
     portal = st.radio(
         "Select Portal",
         ["🏭 Officer Dashboard", "📱 Citizen Report", "🔍 Track Complaint", "📊 Analytics", "🌱 Green AI Metrics"]
     )
-        
+       
     st.divider()
     st.caption(f"Version {config.APP_VERSION}")
     st.caption("🌍 Sustainability for All")
@@ -93,28 +147,28 @@ with st.sidebar:
 if portal == "🏭 Officer Dashboard":
     st.header("👩‍⚖️ Officer Dashboard")
     st.write("Analyze environmental reports, detect fraud, and take action.")
-    
+   
     tab1, tab2, tab3 = st.tabs(["📄 Analyze Report", "🚨 Fraud Alerts", "📋 Recent Reports"])
-    
+   
     with tab1:
         st.subheader("Upload Environmental Report")
-        
+       
         col1, col2 = st.columns(2)
-        
+       
         with col1:
             factory_name = st.text_input("Factory/Company Name", placeholder="e.g., ABC Textiles, Tirupur")
-        
+       
         with col2:
             industry = st.selectbox(
-                "Industry Type", 
+                "Industry Type",
                 ["Select Industry", "Textile", "Chemical", "Steel", "Pharma", "Automobile", "Power", "Food Processing", "Other"]
             )
             industry = None if industry == "Select Industry" else industry.lower()
-        
+       
         report_file = st.file_uploader("Upload Report (PDF/TXT)", type=['pdf', 'txt'])
-        report_text = st.text_area("Or paste report text here", height=150, 
+        report_text = st.text_area("Or paste report text here", height=150,
                                     placeholder="Paste sustainability report content here...")
-        
+       
         if st.button("🔍 Analyze Report", type="primary", use_container_width=True):
             if not factory_name:
                 st.error("❌ Please enter factory/company name")
@@ -123,7 +177,7 @@ if portal == "🏭 Officer Dashboard":
             else:
                 # Start carbon tracking
                 tracker.start_operation("report_analysis")
-                
+               
                 # Get text from file or text area
                 if report_file:
                     with st.spinner("Reading file..."):
@@ -139,27 +193,27 @@ if portal == "🏭 Officer Dashboard":
                             text = report_file.read().decode()
                 else:
                     text = report_text
-                
+               
                 if not text.strip():
                     st.error("❌ No text content found in the file")
                 else:
                     with st.spinner("Analyzing report with GAIA AI..."):
                         # Analyze text
                         analysis = text_analyzer.analyze(text)
-                        
+                       
                         # Detect fraud with industry context
                         fraud = fraud_detector.detect(text, analysis['metrics'], industry=industry)
-                        
+                       
                         # Calculate score
                         score = analysis['gaia_score']
                         status = score_calculator.get_status(score)
-                        
+                       
                         # End tracking
                         emissions = tracker.end_operation()
-                        
+                       
                         # Save to database
                         db.save_report(factory_name, text, score, fraud['is_fake'], fraud['fraud_score'], industry=industry)
-                        
+                       
                         st.session_state['analysis_result'] = {
                             "analysis": analysis,
                             "fraud": fraud,
@@ -182,10 +236,10 @@ if portal == "🏭 Officer Dashboard":
 
             st.divider()
             st.subheader("📊 Analysis Results")
-                    
+                   
                     # Score display
             col1, col2, col3 = st.columns([1, 1, 1])
-                    
+                   
             with col1:
                 status_class = status['status'].lower()
                 st.markdown(f"""
@@ -195,7 +249,7 @@ if portal == "🏭 Officer Dashboard":
                     <p style="text-align:center">{status['message']}</p>
                 </div>
                 """, unsafe_allow_html=True)
-            
+           
             with col2:
                 st.markdown('<div class="metric-card">', unsafe_allow_html=True)
                 st.subheader("📈 Key Metrics")
@@ -218,7 +272,7 @@ if portal == "🏭 Officer Dashboard":
                     else:
                         st.metric(key.replace('_', ' ').title(), "Not Detected")
                 st.markdown('</div>', unsafe_allow_html=True)
-            
+           
             with col3:
                 st.markdown('<div class="metric-card">', unsafe_allow_html=True)
                 st.subheader("🔍 Fraud Analysis")
@@ -238,10 +292,10 @@ if portal == "🏭 Officer Dashboard":
                 st.write("**Reasons:**")
                 for reason in fraud['reasons'][:5]:
                     st.write(f"• {reason}")
-                    
+                   
                 st.markdown('</div>', unsafe_allow_html=True)
 
-                    
+                   
                     # Suggestions
                 st.subheader("💡 Improvement Suggestions")
                 for suggestion in analysis['suggestions']:
@@ -251,11 +305,11 @@ if portal == "🏭 Officer Dashboard":
                         st.warning(f"⚠️ {suggestion}")
                     else:
                         st.info(f"📌 {suggestion}")
-                    
+                   
                     # Actions
             st.divider()
             st.subheader("📨 Send Notification")
-                    
+                   
             email = st.text_input("Email ID")
             message = st.text_area("Message")
 
@@ -274,7 +328,7 @@ if portal == "🏭 Officer Dashboard":
 
             # ✅ Carbon
             st.caption(f"🌱 Emissions: {emissions:.3f} gCO₂")
-    
+   
     with tab2:
         st.subheader("🚨 Fraud Alerts")
         reports = db.get_reports(10)
@@ -305,7 +359,7 @@ if portal == "🏭 Officer Dashboard":
                 st.success("✅ No fraud alerts. All reports appear authentic.")
         else:
             st.info("No reports analyzed yet")
-    
+   
     with tab3:
         st.subheader("📋 Recent Reports")
         reports = db.get_reports(10)
@@ -319,75 +373,75 @@ if portal == "🏭 Officer Dashboard":
 elif portal == "📱 Citizen Report":
     st.header("📱 GAIA Citizen - Report Environmental Violation")
     st.write("Your voice matters. Report environmental violations easily.")
-    
+   
     # Add instructions
     st.info("📢 **How to report:** Upload photo evidence AND/OR record voice/type complaint")
     st.caption("🌐 GAIA will automatically translate your complaint to English for officers")
-    
+   
     # ============================================================
     # PHOTO UPLOAD SECTION (Always visible)
     # ============================================================
     st.subheader("📸 Upload Photo Evidence (Optional but Recommended)")
-    
+   
     photo = st.file_uploader(
-        "Take or upload photo of the violation", 
-        type=['jpg', 'png', 'jpeg'], 
+        "Take or upload photo of the violation",
+        type=['jpg', 'png', 'jpeg'],
         key="citizen_photo",
         help="Upload a clear photo of the environmental violation"
     )
-    
+   
     if photo:
         st.image(photo, caption="Uploaded Evidence", width=300)
         st.success("✅ Photo uploaded successfully!")
-    
+   
     st.divider()
-    
+   
     # ============================================================
     # INPUT METHOD SELECTION (Voice OR Text)
     # ============================================================
     st.subheader("📝 Describe the Issue")
-    
+   
     input_method = st.radio(
         "Choose how to describe your complaint:",
         ["🎤 Voice Input", "📝 Text Input"],
         horizontal=True,
         help="Choose either voice or text to describe the issue"
     )
-    
+   
     # Variables to store complaint data - Initialize with defaults
     complaint_text_original = ""
     complaint_text_translated = ""
     detected_lang = "en"
     lang_name = "English"
     complaint_type = "unknown"
-    
+   
     # ============================================================
     # VOICE INPUT SECTION
     # ============================================================
     if input_method == "🎤 Voice Input":
         st.write("Speak in any language - GAIA understands all!")
         st.caption("💡 Supported languages: Tamil, Hindi, Telugu, Bengali, Marathi, Malayalam, Kannada, Gujarati, Punjabi, English, and more")
-        
+       
         # Live voice recording
         voice_audio = st.audio_input("🎙️ Click the microphone to start recording", key="citizen_voice")
-        
+       
         if voice_audio:
             st.success("✅ Voice recording received!")
             st.audio(voice_audio, format="audio/wav")
-            
+           
             # Process voice automatically
             with st.spinner("Processing your voice complaint with GAIA AI..."):
                 voice_bytes = voice_audio.getvalue()
                 voice_result = voice_processor.process(voice_bytes)
-                
+               
                 if voice_result and voice_result.get('success'):
                     # Store in session
                     st.session_state.voice_complaint = voice_result
-                    
+                   
                     # Show detected language
                     st.write(f"**🌐 Detected Language:** {voice_result.get('language_name', 'English')}")
                     st.write(f"**📊 Confidence:** {voice_result.get('confidence', 0.85)*100:.0f}%")
-                    
+                   
                     # Show original transcript
                     with st.expander("📝 Original Complaint (Your Language)", expanded=True):
                         if 'original_transcript' in voice_result:
@@ -396,7 +450,7 @@ elif portal == "📱 Citizen Report":
                         else:
                             st.write(voice_result.get('transcript', 'No transcript available'))
                             complaint_text_original = voice_result.get('transcript', '')
-                    
+                   
                     # Show English translation
                     with st.expander("🇬🇧 English Translation (For Officers)", expanded=True):
                         if 'translated_transcript' in voice_result:
@@ -405,7 +459,7 @@ elif portal == "📱 Citizen Report":
                         else:
                             st.write(voice_result.get('transcript', 'No translation available'))
                             complaint_text_translated = voice_result.get('transcript', '')
-                    
+                   
                     # Show extracted details
                     details = voice_result.get('complaint_details', {})
                     col_d1, col_d2 = st.columns(2)
@@ -419,28 +473,28 @@ elif portal == "📱 Citizen Report":
                                 'noise_pollution': '🔊 Noise Pollution'
                             }
                             st.info(f"{type_icons.get(complaint_type, '📋 ' + complaint_type)}")
-                    
+                   
                     with col_d2:
                         if details.get('urgency') == 'HIGH':
                             st.warning("🚨 URGENT - Priority complaint")
-                    
+                   
                     if details.get('location_mentioned'):
                         st.write(f"📍 **Location detected:** {details['location_mentioned']}")
-                    
+                   
                     # Set language info
                     detected_lang = voice_result.get('language_code', 'en')
                     lang_name = voice_result.get('language_name', 'English')
-                    
+                   
                     st.success("✅ Voice complaint processed and translated to English!")
                 else:
                     st.error("Could not process voice. Please try again or use Text Input.")
-    
+   
     # ============================================================
     # TEXT INPUT SECTION
     # ============================================================
     else:  # Text Input
         st.write("Type your complaint in any language - GAIA will translate it!")
-        
+       
         # Language hint row
         st.caption("💡 Examples in different languages:")
         col_h1, col_h2, col_h3, col_h4 = st.columns(4)
@@ -452,7 +506,7 @@ elif portal == "📱 Citizen Report":
             st.caption("🇮🇳 Telugu: నీటి కాలుష్యం")
         with col_h4:
             st.caption("🇮🇳 English: Water pollution")
-        
+       
         # Text area for complaint
         text_complaint = st.text_area(
             "Enter your complaint:",
@@ -460,26 +514,26 @@ elif portal == "📱 Citizen Report":
             placeholder="Example in Tamil: எங்கள் கிராமத்தின் பின்புறம் ஒரு தொழிற்சாலை ஆற்றில் ரசாயன கழிவுகளை கொட்டுகிறது...\n\nOr in Hindi: हमारे गाँव के पास एक फैक्ट्री नदी में रासायनिक कचरा फेंक रही है...\n\nOr in English: Factory behind our village is dumping chemical waste into the river...",
             help="Type your complaint in any language. GAIA will detect and translate it."
         )
-        
+       
         # Language selection
         col_lang1, col_lang2 = st.columns([2, 1])
         with col_lang1:
             manual_lang = st.selectbox(
                 "Select your language (optional):",
-                ["Auto-detect", "Tamil (தமிழ்)", "Hindi (हिन्दी)", "Telugu (తెలుగు)", "Bengali (বাংলা)", 
-                 "Marathi (मराठी)", "Malayalam (മലയാളം)", "Kannada (ಕನ್ನಡ)", "Gujarati (ગુજરાતી)", 
+                ["Auto-detect", "Tamil (தமிழ்)", "Hindi (हिन्दी)", "Telugu (తెలుగు)", "Bengali (বাংলা)",
+                 "Marathi (मराठी)", "Malayalam (മലയാളം)", "Kannada (ಕನ್ನಡ)", "Gujarati (ગુજરાતી)",
                  "Punjabi (ਪੰਜਾਬੀ)", "English"]
             )
         with col_lang2:
             st.write("")
             st.write("")
             process_text = st.button("🔄 Translate Complaint", use_container_width=True)
-        
+       
         if process_text and text_complaint:
             with st.spinner("Translating your complaint..."):
                 try:
                     from deep_translator import GoogleTranslator # pyright: ignore[reportMissingImports]
-                    
+                   
                     # Determine source language
                     if manual_lang != "Auto-detect":
                         lang_map = {
@@ -491,11 +545,11 @@ elif portal == "📱 Citizen Report":
                         source_lang = lang_map.get(manual_lang, 'auto')
                     else:
                         source_lang = 'auto'
-                    
+                   
                     # Translate to English
                     translator = GoogleTranslator(source=source_lang, target='en')
                     translated_text = translator.translate(text_complaint)
-                    
+                   
                     # Get language name
                     lang_names = {
                         'ta': 'Tamil (தமிழ்)', 'hi': 'Hindi (हिन्दी)', 'te': 'Telugu (తెలుగు)',
@@ -505,11 +559,11 @@ elif portal == "📱 Citizen Report":
                     }
                     detected_lang = source_lang if source_lang != 'auto' else 'en'
                     lang_name = lang_names.get(detected_lang, detected_lang)
-                    
+                   
                     # Extract complaint details
                     details = voice_processor._extract_complaint_details(translated_text)
                     complaint_type = details.get('complaint_type', 'unknown')
-                    
+                   
                     # Store in session
                     text_complaint_data = {
                         'original': text_complaint,
@@ -519,21 +573,21 @@ elif portal == "📱 Citizen Report":
                         'complaint_details': details
                     }
                     st.session_state.text_complaint_data = text_complaint_data
-                    
+                   
                     # Set variables for submission
                     complaint_text_original = text_complaint
                     complaint_text_translated = translated_text
-                    
+                   
                     # Display results
                     st.success(f"✅ Translation complete!")
                     st.write(f"**🌐 Detected Language:** {lang_name}")
-                    
+                   
                     with st.expander("📝 Original Complaint (Your Language)", expanded=True):
                         st.write(text_complaint)
-                    
+                   
                     with st.expander("🇬🇧 English Translation (For Officers)", expanded=True):
                         st.success(translated_text)
-                    
+                   
                     col_d1, col_d2 = st.columns(2)
                     with col_d1:
                         if details.get('complaint_type'):
@@ -547,17 +601,17 @@ elif portal == "📱 Citizen Report":
                     with col_d2:
                         if details.get('urgency') == 'HIGH':
                             st.warning("🚨 URGENT - Priority complaint")
-                    
+                   
                     if details.get('location_mentioned'):
                         st.write(f"📍 **Location detected:** {details['location_mentioned']}")
-                    
+                   
                 except Exception as e:
                     st.error(f"Translation error: {e}")
                     st.info("Please check your internet connection and try again.")
-        
+       
         elif process_text and not text_complaint:
             st.warning("Please enter your complaint text.")
-        
+       
         # If already processed, show stored data
         if 'text_complaint_data' in st.session_state and not process_text:
             text_complaint_data = st.session_state.text_complaint_data
@@ -566,32 +620,32 @@ elif portal == "📱 Citizen Report":
             detected_lang = text_complaint_data['language_code']
             lang_name = text_complaint_data['language_name']
             complaint_type = text_complaint_data.get('complaint_details', {}).get('complaint_type', 'unknown')
-            
+           
             st.success(f"✅ Previously translated from {lang_name}")
             with st.expander("📝 Original Complaint", expanded=False):
                 st.write(complaint_text_original)
             with st.expander("🇬🇧 English Translation", expanded=False):
                 st.success(complaint_text_translated)
-    
+   
     st.divider()
-    
+   
     # ============================================================
     # LOCATION AND SUBMISSION (Common for all methods)
     # ============================================================
     st.subheader("📍 Location Details")
-    
+   
     col1, col2 = st.columns(2)
-    
+   
     with col1:
         location = st.text_input(
-            "Location / Address", 
+            "Location / Address",
             placeholder="e.g., Near Noyyal River, Tirupur",
             help="Enter the exact location where the violation is happening"
         )
-    
+   
     with col2:
         anonymous = st.checkbox("Report anonymously (your identity will be protected)")
-    
+   
     # Show complaint summary
     if complaint_text_original:
         st.markdown("---")
@@ -601,7 +655,7 @@ elif portal == "📱 Citizen Report":
             st.caption(f"🇬🇧 **English translation:** {complaint_text_translated[:200]}...")
         if photo:
             st.caption(f"📸 **Photo evidence:** Uploaded")
-    
+   
     # ============================================================
     # SUBMIT BUTTON
     # ============================================================
@@ -609,22 +663,22 @@ elif portal == "📱 Citizen Report":
         # Validation
         has_voice = 'voice_complaint' in st.session_state and st.session_state.voice_complaint
         has_text = complaint_text_original and complaint_text_original.strip()
-        
+       
         if not has_voice and not has_text:
             st.error("❌ Please either record a voice complaint OR type your complaint")
         elif not location:
             st.error("❌ Please provide location")
         else:
             tracker.start_operation("citizen_report")
-            
+           
             with st.spinner("Processing your report with GAIA AI..."):
                 tracking_id = f"GAIA-{datetime.now().strftime('%Y%m%d')}-{uuid.uuid4().hex[:6].upper()}"
-                
+               
                 # Process photo if uploaded
                 photo_result = None
                 if photo:
                     photo_result = image_analyzer.analyze(photo.getvalue())
-                
+               
                 # Get complaint data from voice or text
                 if has_voice:
                     v_result = st.session_state.voice_complaint
@@ -636,45 +690,45 @@ elif portal == "📱 Citizen Report":
                     original_text = complaint_text_original
                     translated_text = complaint_text_translated
                     language_code = detected_lang
-                
+               
                 # Debug print
                 print(f"🔍 Saving complaint - Tracking ID: {tracking_id}")
                 print(f"   Type: {complaint_type}, Location: {location}")
                 print(f"   Original: {original_text[:100]}...")
                 print(f"   Translated: {translated_text[:100]}...")
-                
+               
                 # Save to database (ONLY ONCE)
                 result = db.save_complaint(tracking_id, complaint_type, location, original_text, translated_text, language_code)
-                
+               
                 if result:
                     print(f"✅ Complaint saved successfully with ID: {result}")
                 else:
                     print(f"❌ Failed to save complaint")
-                
+               
                 # Generate acknowledgment
                 ack = notification_system.generate_citizen_acknowledgment(tracking_id)
-                
+               
                 # Send acknowledgment (simulated)
                 if not anonymous:
                     notification_system.send("citizen@example.com", ack)
-                
+               
             emissions = tracker.end_operation()
-            
+           
             # Clear session data
             if 'voice_complaint' in st.session_state:
                 del st.session_state.voice_complaint
             if 'text_complaint_data' in st.session_state:
                 del st.session_state.text_complaint_data
-            
+           
             # Show success
             st.balloons()
             st.success(f"✅ Report Submitted Successfully!")
             st.info(f"📌 **Tracking ID:** `{tracking_id}`")
-            
+           
             # Show complete report summary
             st.write("---")
             st.write("**📋 Complete Report Summary:**")
-            
+           
             # Photo evidence
             if photo:
                 st.write("📸 **Photo Evidence:** Uploaded and analyzed")
@@ -682,21 +736,21 @@ elif portal == "📱 Citizen Report":
                     st.warning(photo_result.get('complaint_text', 'Violation detected in photo'))
                 else:
                     st.write("No violation detected in photo")
-            
+           
             # Complaint text
             st.write(f"**📝 Original Complaint ({language_code.upper()}):** {original_text[:300]}")
             if translated_text and translated_text != original_text:
                 st.write(f"**🇬🇧 English Translation:** {translated_text[:300]}")
-            
+           
             # Location
             st.write(f"**📍 Location:** {location}")
-            
+           
             # Tracking info
             st.write("---")
             st.write("**🔍 Track your complaint:**")
             st.code(f"Tracking ID: {tracking_id}")
             st.info("Go to 'Track Complaint' portal and enter this ID to check status")
-            
+           
             st.write("---")
             st.write("**⏳ What happens next:**")
             col1, col2, col3, col4 = st.columns(4)
@@ -712,9 +766,9 @@ elif portal == "📱 Citizen Report":
             with col4:
                 st.write("4️⃣ Action Report")
                 st.write("⏳ Sent via SMS/Email")
-            
+           
             st.caption(f"🌱 This report carbon footprint: **{emissions:.3f} gCO₂**")
-            
+           
             # Reset button
             if st.button("📝 Report Another Issue"):
                 st.rerun()
@@ -722,13 +776,13 @@ elif portal == "📱 Citizen Report":
 elif portal == "🔍 Track Complaint":
     st.header("🔍 Track Your Complaint")
     st.write("Enter your Tracking ID to check the status of your complaint.")
-    
+   
     # Initialize session state for tracking
     if 'current_tracking_id' not in st.session_state:
         st.session_state.current_tracking_id = None
-    
+   
     col1, col2 = st.columns([2, 1])
-    
+   
     with col1:
         tracking_input = st.text_input(
             "Enter Tracking ID",
@@ -736,25 +790,25 @@ elif portal == "🔍 Track Complaint":
             help="Enter the Tracking ID you received after submitting your complaint",
             key="tracking_input_field"
         ).upper().strip()
-    
+   
     with col2:
         track_button = st.button("🔍 Track Complaint", type="primary", use_container_width=True)
-    
+   
     if track_button and tracking_input:
         # Store the tracking ID in session state
         st.session_state.current_tracking_id = tracking_input
         st.rerun()
-    
+   
     # Use the stored tracking ID
     if st.session_state.current_tracking_id:
         tracking_id = st.session_state.current_tracking_id
-        
+       
         with st.spinner("Fetching complaint details..."):
             complaint = db.get_complaint_by_tracking_id(tracking_id)
-            
+           
             if complaint:
                 st.success("✅ Complaint Found!")
-                
+               
                 # Status display
                 status = complaint.get('status', 'PENDING')
                 status_icons = {
@@ -764,11 +818,11 @@ elif portal == "🔍 Track Complaint":
                     'REJECTED': ('🔴', 'Rejected')
                 }
                 status_icon, status_text = status_icons.get(status, ('⚪', status))
-                
+               
                 # Progress bar
                 progress_map = {'PENDING': 25, 'IN_PROGRESS': 50, 'RESOLVED': 100, 'REJECTED': 100}
                 progress_value = progress_map.get(status, 0)
-                
+               
                 # Status header
                 st.markdown(
                     f'<div style="background: linear-gradient(135deg, #1a237e, #0d47a1); padding: 20px; border-radius: 15px; margin: 10px 0;">'
@@ -777,9 +831,9 @@ elif portal == "🔍 Track Complaint":
                     f'</div>',
                     unsafe_allow_html=True
                 )
-                
+               
                 st.progress(progress_value / 100, text="Complaint Progress")
-                
+               
                 # Status steps
                 col1, col2, col3, col4 = st.columns(4)
                 with col1:
@@ -790,7 +844,7 @@ elif portal == "🔍 Track Complaint":
                     st.markdown("✅ **Action Taken**" if progress_value >= 75 else "🟡 **Action Taken**")
                 with col4:
                     st.markdown("✅ **Completed**" if progress_value == 100 else "🟡 **Completed**")
-                
+               
                 # Complaint details
                 col1, col2 = st.columns(2)
                 with col1:
@@ -799,7 +853,7 @@ elif portal == "🔍 Track Complaint":
                     st.write(f"**Submitted:** {complaint.get('created_at', 'Unknown')}")
                     if complaint.get('officer_assigned'):
                         st.write(f"**Officer:** {complaint.get('officer_assigned')}")
-                
+               
                 with col2:
                     if complaint.get('original_text'):
                         with st.expander("View Your Complaint"):
@@ -807,23 +861,23 @@ elif portal == "🔍 Track Complaint":
                     if complaint.get('translated_text') and complaint.get('translated_text') != complaint.get('original_text'):
                         with st.expander("View English Translation"):
                             st.write(complaint.get('translated_text'))
-                
+               
                 # FEEDBACK SECTION (Only when status is RESOLVED)
                 if status == 'RESOLVED':
                     st.markdown("---")
                     st.subheader("📝 Share Your Feedback")
                     st.write("How satisfied are you with the resolution of your complaint?")
-                    
+                   
                     # Get existing feedback
                     existing_feedback = db.get_feedback_by_tracking_id(tracking_id)
-                    
+                   
                     # Show debug info in expander (can be removed later)
                     with st.expander("🔍 Debug Info", expanded=False):
                         st.write(f"Tracking ID: {tracking_id}")
                         st.write(f"Existing feedback count: {len(existing_feedback) if existing_feedback else 0}")
                         if existing_feedback:
                             st.write(f"Feedback data: {existing_feedback[0]}")
-                    
+                   
                     # Check if feedback already exists
                     if existing_feedback and len(existing_feedback) > 0:
                         st.success("✅ Thank you for your feedback! Your response has been recorded.")
@@ -831,7 +885,7 @@ elif portal == "🔍 Track Complaint":
                         st.write(f"**Your Rating:** {fb.get('rating')}")
                         st.write(f"**Your Feedback:** {fb.get('feedback_text')}")
                         st.write(f"**Submitted on:** {fb.get('created_at')}")
-                    
+                   
                     else:
                         # Feedback form
                         with st.form(key=f"feedback_form_{tracking_id}"):
@@ -840,30 +894,30 @@ elif portal == "🔍 Track Complaint":
                                 options=["Very Poor", "Poor", "Average", "Good", "Excellent"],
                                 value="Good"
                             )
-                            
+                           
                             feedback_text = st.text_area(
-                                "Your feedback (optional)", 
+                                "Your feedback (optional)",
                                 placeholder="Share your experience with the resolution process...",
                                 height=100
                             )
-                            
+                           
                             submitted = st.form_submit_button("Submit Feedback", type="primary", use_container_width=True)
-                            
+                           
                             if submitted:
                                 # Save feedback
                                 result = db.save_feedback(
-                                    tracking_id, 
-                                    rating, 
+                                    tracking_id,
+                                    rating,
                                     feedback_text if feedback_text.strip() else "No comment provided"
                                 )
-                                
+                               
                                 if result:
                                     st.success("✅ Thank you for your feedback! Your response has been recorded.")
                                     st.balloons()
                                     st.rerun()
                                 else:
                                     st.error("❌ Failed to save feedback. Please try again.")
-                
+               
                 # Next steps
                 st.markdown("---")
                 if status == 'PENDING':
@@ -874,18 +928,18 @@ elif portal == "🔍 Track Complaint":
                     st.success("✅ Your complaint has been resolved. Thank you for helping protect the environment!")
                 elif status == 'REJECTED':
                     st.error("❌ Your complaint could not be verified. Please contact support for more information.")
-                
+               
                 # Clear button
                 if st.button("🔍 Track Another Complaint"):
                     st.session_state.current_tracking_id = None
                     st.rerun()
-                
+               
             else:
                 st.error(f"❌ No complaint found with Tracking ID: {tracking_id}")
                 if st.button("Try Another ID"):
                     st.session_state.current_tracking_id = None
                     st.rerun()
-    
+   
     elif not st.session_state.current_tracking_id and not track_button:
         st.info("👆 Enter your tracking ID above to check your complaint status")
 
@@ -893,16 +947,16 @@ elif portal == "🔍 Track Complaint":
 elif portal == "📊 Analytics":
     st.header("📊 Sustainability Analytics - Officer Dashboard")
     st.write("Manage and track citizen complaints, monitor fraud detection, and review feedback.")
-    
+   
     # Create tabs
     tab1, tab2, tab3, tab4 = st.tabs(["📈 Reports by Score Range", "🚨 Fraud Detection Stats", "📱 Citizen Complaints", "📨 Notifications Sent"])
-    
+   
     # ============================================================
     # TAB 1: Reports by Score Range
     # ============================================================
     with tab1:
         st.subheader("📈 Reports by Score Range")
-        
+       
         reports = db.get_reports(100)
         if reports:
             # Score distribution chart
@@ -912,7 +966,7 @@ elif portal == "📊 Analytics":
                 "Poor (40-59)": 0,
                 "Critical (0-39)": 0
             }
-            
+           
             for report in reports:
                 score = report.get('gaia_score', 0)
                 if score >= 80:
@@ -923,20 +977,20 @@ elif portal == "📊 Analytics":
                     score_ranges["Poor (40-59)"] += 1
                 else:
                     score_ranges["Critical (0-39)"] += 1
-            
+           
             # Create bar chart
             import plotly.express as px # pyright: ignore[reportMissingImports]
             import pandas as pd # pyright: ignore[reportMissingModuleSource]
-            
+           
             df_scores = pd.DataFrame({
                 'Range': list(score_ranges.keys()),
                 'Count': list(score_ranges.values())
             })
-            
+           
             fig = px.bar(df_scores, x='Range', y='Count', title='Reports Distribution by Score',
                         color='Count', color_continuous_scale='Viridis')
             st.plotly_chart(fig, use_container_width=True)
-            
+           
             # Display metrics
             col1, col2, col3, col4 = st.columns(4)
             with col1:
@@ -947,25 +1001,25 @@ elif portal == "📊 Analytics":
                 st.metric("Poor", score_ranges["Poor (40-59)"])
             with col4:
                 st.metric("Critical", score_ranges["Critical (0-39)"])
-            
+           
             with st.expander("📋 Recent Reports Details"):
                 for report in reports[:10]:
                     status_color = "🟢" if report.get('gaia_score', 0) >= 60 else "🔴"
                     st.write(f"{status_color} **{report.get('factory_name', 'Unknown')}** - Score: {report.get('gaia_score', 0)} - {report.get('created_at', '')[:19]}")
         else:
             st.info("No reports analyzed yet")
-    
+   
     # ============================================================
     # TAB 2: Fraud Detection Stats
     # ============================================================
     with tab2:
         st.subheader("🚨 Fraud Detection Statistics")
-        
+       
         reports = db.get_reports(100)
         if reports:
             fraud_count = sum(1 for r in reports if r.get('is_fake', False))
             authentic_count = len(reports) - fraud_count
-            
+           
             col1, col2, col3 = st.columns(3)
             with col1:
                 st.metric("Total Reports", len(reports))
@@ -973,12 +1027,12 @@ elif portal == "📊 Analytics":
                 st.metric("Fake Reports Detected", fraud_count, delta=f"{fraud_count/len(reports)*100:.0f}% of total" if reports else "0%")
             with col3:
                 st.metric("Authentic Reports", authentic_count)
-            
+           
             # Fraud pie chart
             fig = px.pie(values=[fraud_count, authentic_count], names=['Fake Reports', 'Authentic Reports'],
                         title='Fraud Detection Analysis', color_discrete_sequence=['red', 'green'])
             st.plotly_chart(fig, use_container_width=True)
-            
+           
             # Fraud alerts list
             st.subheader("🚨 Recent Fraud Alerts")
             fraud_reports = [r for r in reports if r.get('is_fake', False)]
@@ -989,7 +1043,7 @@ elif portal == "📊 Analytics":
                 st.success("✅ No fraud alerts detected")
         else:
             st.info("No reports analyzed yet")
-    
+   
     # ============================================================
     # TAB 3: Citizen Complaints (Officer Management)
     # ============================================================
@@ -1000,31 +1054,31 @@ elif portal == "📊 Analytics":
     with tab3:
         st.subheader("📱 Citizen Complaints Management")
         st.write("Track, update status, and manage citizen complaints.")
-        
+       
         # Get all complaints
         all_complaints = db.get_complaints(100)
-        
+       
         if all_complaints:
             # Create dropdown options
             complaint_options = ["-- Select a Complaint --"]
             complaint_map = {}
-            
+           
             for complaint in all_complaints:
                 tracking_id = complaint.get('tracking_id', 'Unknown')
                 status = complaint.get('status', 'PENDING')
                 complaint_type = complaint.get('complaint_type', 'unknown').replace('_', ' ').title()
                 location = complaint.get('location', 'N/A')[:30]
-                
+               
                 display_text = f"{tracking_id} - {complaint_type} - {status} - {location}"
                 complaint_options.append(display_text)
                 complaint_map[display_text] = complaint
-            
+           
             selected_option = st.selectbox(
                 "Select Complaint to View/Update",
                 options=complaint_options,
                 index=0
             )
-            
+           
             # Statistics
             col1, col2, col3, col4 = st.columns(4)
             with col1:
@@ -1038,46 +1092,46 @@ elif portal == "📊 Analytics":
                 st.metric("✅ Resolved", resolved_count)
             with col4:
                 st.metric("📊 Total", len(all_complaints))
-                
-            
+               
+           
             # ============================================================
             # Selected Complaint Details
             # ============================================================
             if selected_option != "-- Select a Complaint --":
                 complaint = complaint_map[selected_option]
                 tracking_id = complaint.get('tracking_id')
-                
+               
                 st.markdown("---")
                 st.subheader(f"📋 Complaint Details - {tracking_id}")
-                
+               
                 col1, col2 = st.columns(2)
                 with col1:
                     st.write(f"**📍 Type:** {complaint.get('complaint_type', 'Unknown').replace('_', ' ').title()}")
                     st.write(f"**📍 Location:** {complaint.get('location', 'Not provided')}")
                     st.write(f"**📅 Submitted:** {complaint.get('created_at', 'Unknown')}")
                     st.write(f"**🔄 Status:** {complaint.get('status', 'PENDING')}")
-                
+               
                 with col2:
                     st.write(f"**🌐 Language:** {complaint.get('language_code', 'en').upper()}")
                     if complaint.get('officer_assigned'):
                         st.write(f"**👮 Officer:** {complaint.get('officer_assigned')}")
                     if complaint.get('inspection_date'):
                         st.write(f"**📆 Inspection:** {complaint.get('inspection_date')}")
-                
+               
                 if complaint.get('original_text'):
                     with st.expander("📝 View Original Complaint"):
                         st.write(complaint.get('original_text'))
-                
+               
                 if complaint.get('translated_text') and complaint.get('translated_text') != complaint.get('original_text'):
                     with st.expander("🇬🇧 View English Translation"):
                         st.write(complaint.get('translated_text'))
-                
+               
                 # ============================================================
                 # Update Status
                 # ============================================================
                 st.markdown("---")
                 st.subheader("📌 Update Complaint Status")
-                
+               
                 col1, col2, col3 = st.columns(3)
                 with col1:
                     new_status = st.selectbox(
@@ -1089,7 +1143,7 @@ elif portal == "📊 Analytics":
                     officer_name = st.text_input("Officer Name", value=complaint.get('officer_assigned', ''))
                 with col3:
                     inspection_date = st.date_input("Inspection Date", value=None)
-                
+               
                 if st.button("✅ Update Status", type="primary"):
                     result = db.update_complaint_status(
                         tracking_id, new_status,
@@ -1101,22 +1155,22 @@ elif portal == "📊 Analytics":
                         st.rerun()
                     else:
                         st.error("❌ Failed to update status")
-                
+               
                 # ============================================================
                 # FEEDBACK DISPLAY - FIXED
                 # ============================================================
                 st.markdown("---")
                 st.subheader("📝 Citizen Feedback")
-                
+               
                 # Get feedback for this complaint
                 feedback_list = db.get_feedback_by_tracking_id(tracking_id)
-                
+               
                 if feedback_list and len(feedback_list) > 0:
                     for fb in feedback_list:
                         st.write(f"**⭐ Rating:** {fb.get('rating')}")
                         st.write(f"**💬 Feedback:** {fb.get('feedback_text')}")
                         st.write(f"**📅 Date:** {fb.get('created_at')}")
-                        
+                       
                         if fb.get('is_read') == 0:
                             if st.button("📖 Mark as Read", key=f"mark_read_{fb.get('id')}"):
                                 db.mark_feedback_as_read(fb.get('id'))
@@ -1128,14 +1182,14 @@ elif portal == "📊 Analytics":
                         st.divider()
                 else:
                     st.info("No feedback received for this complaint yet. Feedback appears after complaint is resolved.")
-                
+               
                 # ============================================================
                 # Delete Complaint
                 # ============================================================
                 st.markdown("---")
                 st.subheader("🗑️ Delete Complaint")
                 st.warning("⚠️ This action is permanent and cannot be undone!")
-                
+               
                 col1, col2 = st.columns([1, 1])
                 with col1:
                     confirm_delete = st.checkbox("Confirm Deletion", key=f"confirm_delete_{tracking_id}")
@@ -1158,7 +1212,7 @@ elif portal == "📊 Analytics":
                                 st.error(f"Error: {e}")
                         else:
                             st.error("❌ Please confirm deletion")
-            
+           
                 # All Feedback Overview
                 # ============================================================
                 st.markdown("---")
@@ -1182,7 +1236,7 @@ elif portal == "📊 Analytics":
                         ratings = [rating_map.get(fb.get('rating'), 3) for fb in all_feedback if fb.get('rating')]
                         avg_rating = sum(ratings) / len(ratings) if ratings else 0
                         st.metric("⭐ Avg Rating", f"{avg_rating:.1f}/5")
-                        
+                       
                         # Feedback rating distribution chart
                     st.markdown("---")
                     st.subheader("📊 Feedback Rating Distribution")
@@ -1210,16 +1264,16 @@ elif portal == "📊 Analytics":
                         'Very Poor': '#F44336'
                     }
 
-                    fig = px.bar(df_ratings, x='Rating', y='Count', 
+                    fig = px.bar(df_ratings, x='Rating', y='Count',
                                 title='Citizen Satisfaction Distribution',
                                 color='Rating',
                                 color_discrete_map=color_map)
                     st.plotly_chart(fig, use_container_width=True)
-                    
+                   
                     # Action buttons row
                     st.markdown("---")
                     col1, col2, col3, col4 = st.columns([1, 1, 1, 1])
-                    
+                   
                     with col1:
                         if st.button("🗑️ Delete All Read Feedback", type="secondary", use_container_width=True):
                             if read_count > 0:
@@ -1231,7 +1285,7 @@ elif portal == "📊 Analytics":
                                     st.error("❌ Failed to delete feedback")
                             else:
                                 st.warning("⚠️ No read feedback to delete")
-                    
+                   
                     with col2:
                         if st.button("📋 Export Feedback (CSV)", type="secondary", use_container_width=True):
                             # Create CSV export
@@ -1244,12 +1298,12 @@ elif portal == "📊 Analytics":
                                 file_name=f"gaia_feedback_{datetime.now().strftime('%Y%m%d')}.csv",
                                 mime="text/csv"
                             )
-                    
+                   
                     st.markdown("---")
-                    
+                   
                     # Feedback list with delete buttons
                     st.subheader("📋 Feedback List")
-                    
+                   
                     # Filter options
                     filter_option = st.radio(
                         "Filter by status:",
@@ -1257,34 +1311,34 @@ elif portal == "📊 Analytics":
                         horizontal=True,
                         key="feedback_filter"
                     )
-                    
+                   
                     filtered_feedback = all_feedback
                     if filter_option == "Unread Only":
                         filtered_feedback = [fb for fb in all_feedback if fb.get('is_read') == 0]
                     elif filter_option == "Read Only":
                         filtered_feedback = [fb for fb in all_feedback if fb.get('is_read') == 1]
-                    
+                   
                     if filtered_feedback:
                         for idx, fb in enumerate(filtered_feedback[:20]):  # Show last 20
                             with st.container():
                                 col1, col2, col3, col4, col5 = st.columns([2, 3, 1, 1, 1])
-                                
+                               
                                 with col1:
                                     st.write(f"**{fb.get('tracking_id')}**")
-                                
+                               
                                 with col2:
                                     rating_display = fb.get('rating', 'N/A')
                                     feedback_preview = fb.get('feedback_text', '')[:80]
                                     if len(fb.get('feedback_text', '')) > 80:
                                         feedback_preview += "..."
                                     st.write(f"⭐ {rating_display} - {feedback_preview}")
-                                    
+                                   
                                     # Show full feedback in expander
                                     with st.expander("View Full Feedback"):
                                         st.write(f"**Rating:** {fb.get('rating')}")
                                         st.write(f"**Feedback:** {fb.get('feedback_text')}")
                                         st.write(f"**Date:** {fb.get('created_at')}")
-                                
+                               
                                 with col3:
                                     if fb.get('is_read') == 0:
                                         st.warning("🆕 New")
@@ -1293,7 +1347,7 @@ elif portal == "📊 Analytics":
                                             st.rerun()
                                     else:
                                         st.success("📖 Read")
-                                
+                               
                                 with col4:
                                     # Delete single feedback button
                                     if fb.get('is_read') == 1:
@@ -1305,27 +1359,27 @@ elif portal == "📊 Analytics":
                                                 st.error("❌ Failed")
                                     else:
                                         st.caption("Mark read to delete")
-                                
+                               
                                 with col5:
                                     # View complaint link
                                     if st.button("🔍 View", key=f"view_complaint_{fb.get('id')}"):
                                         st.session_state.selected_complaint_tracking = fb.get('tracking_id')
                                         st.rerun()
-                                
+                               
                                 st.divider()
-                        
+                       
                         if len(filtered_feedback) > 20:
                             st.caption(f"Showing 20 of {len(filtered_feedback)} feedback entries")
                     else:
                         st.info("No feedback matching the filter")
-                    
+                   
                     # Bulk delete confirmation
                     st.markdown("---")
                     with st.expander("⚠️ Bulk Delete Options", expanded=False):
                         st.warning("These actions cannot be undone!")
-                        
+                       
                         col1, col2 = st.columns(2)
-                        
+                       
                         with col1:
                             if st.button("🗑️ Delete ALL Read Feedback", type="primary", use_container_width=True):
                                 if read_count > 0:
@@ -1334,14 +1388,14 @@ elif portal == "📊 Analytics":
                                     st.rerun()
                                 else:
                                     st.info("No read feedback to delete")
-                        
+                       
                         with col2:
                             # Delete feedback older than 30 days
                             if st.button("🗑️ Delete Feedback > 30 Days", type="primary", use_container_width=True):
                                 try:
                                     import sqlite3
                                     from datetime import datetime, timedelta
-                                    
+                                   
                                     conn = sqlite3.connect("data/gaia.db")
                                     cursor = conn.cursor()
                                     cutoff_date = (datetime.now() - timedelta(days=30)).isoformat()
@@ -1349,7 +1403,7 @@ elif portal == "📊 Analytics":
                                     deleted = cursor.rowcount
                                     conn.commit()
                                     conn.close()
-                                    
+                                   
                                     if deleted > 0:
                                         st.success(f"✅ Deleted {deleted} old feedback entries!")
                                         st.rerun()
@@ -1360,20 +1414,20 @@ elif portal == "📊 Analytics":
 
                 else:
                     st.info("No feedback received yet.")
-        
+       
         else:
             st.info("No complaints found. Submit a complaint first.")
-            
+           
     # ============================================================
     # TAB 4: Notifications Sent
     # ============================================================
     with tab4:
         st.subheader("📨 Notifications Sent History")
-        
+       
         history = notification_system.get_history()
         if history:
             st.metric("Total Notifications Sent", len(history))
-            
+           
             for notif in history[-20:]:
                 with st.container():
                     st.write(f"**To:** {notif.get('to', 'Unknown')}")
@@ -1387,42 +1441,42 @@ elif portal == "📊 Analytics":
 elif portal == "🌱 Green AI Metrics":
     st.header("🌱 Green AI - Carbon Footprint Dashboard")
     st.write("GAIA is built with sustainability at its core. Here's our AI's environmental impact.")
-    
+   
     col1, col2, col3 = st.columns(3)
-    
+   
     summary = tracker.get_summary()
-    
+   
     with col1:
         st.metric("Total Carbon Emitted", f"{summary['total_emissions_g']:.3f} gCO₂")
         st.caption("Equivalent to driving a car for 0.01 km")
-    
+   
     with col2:
         st.metric("Total Energy Used", f"{summary['total_energy_kwh']:.6f} kWh")
         st.caption("Less than charging a smartphone once")
-    
+   
     with col3:
         st.metric("Operations Tracked", summary['operations_count'])
         st.caption("AI analyses performed")
-    
+   
     st.divider()
-    
+   
     st.subheader("📊 Comparison with Conventional AI")
-    
+   
     conventional = summary['total_emissions_g'] * 50
     saved = conventional - summary['total_emissions_g']
-    
+   
     col1, col2 = st.columns(2)
-    
+   
     with col1:
         st.metric("Conventional AI Would Emit", f"{conventional:.3f} gCO₂")
         st.progress(1.0, text="100%")
-    
+   
     with col2:
         st.metric("GAIA Actually Emitted", f"{summary['total_emissions_g']:.3f} gCO₂")
         st.progress(summary['total_emissions_g'] / max(conventional, 1), text=f"{summary['total_emissions_g']/conventional*100:.1f}%")
-    
+   
     st.success(f"💚 **GAIA saved {saved:.3f} gCO₂ compared to conventional AI solutions!**")
-    
+   
     # Display carbon equivalents if available
     if hasattr(tracker, 'get_equivalents'):
         equivalents = tracker.get_equivalents()
@@ -1435,9 +1489,9 @@ elif portal == "🌱 Green AI Metrics":
             st.metric("📱 Phone Charges", f"{equivalents['smartphone_charges']:,}")
         with col3:
             st.metric("🌳 Tree Days", f"{equivalents['tree_days']:,}")
-    
+   
     st.divider()
-    
+   
     st.subheader("🌍 Why Green AI Matters")
     st.write("""
     - **Conventional AI** for sustainability often runs on cloud GPUs powered by fossil fuels
